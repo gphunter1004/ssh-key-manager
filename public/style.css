@@ -20,7 +20,7 @@ body {
 }
 
 .container-wide {
-    max-width: 800px;
+    max-width: 1200px;
 }
 
 h1, h2, h3, h4 {
@@ -107,6 +107,256 @@ button.danger:hover {
     position: relative;
 }
 
+.header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.nav-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.nav-btn {
+    background-color: #95a5a6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.nav-btn:hover {
+    background-color: #7f8c8d;
+}
+
+.nav-btn.active {
+    background-color: #3498db;
+}
+
+.nav-btn.active:hover {
+    background-color: #2980b9;
+}
+
+.view-section {
+    display: block;
+}
+
+.view-section.hidden {
+    display: none;
+}
+
+/* 사용자 목록 스타일 */
+.stats-section {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-label {
+    display: block;
+    font-size: 14px;
+    color: #7f8c8d;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.users-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+}
+
+.user-card {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 15px;
+    transition: box-shadow 0.3s;
+    cursor: pointer;
+}
+
+.user-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-card.has-key {
+    border-left: 4px solid #27ae60;
+}
+
+.user-card.no-key {
+    border-left: 4px solid #e74c3c;
+}
+
+.user-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.user-meta {
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-bottom: 8px;
+}
+
+.user-status {
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    display: inline-block;
+}
+
+.user-status.has-key {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.user-status.no-key {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* 프로필 관리 스타일 */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.user-info {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 20px;
+}
+
+.user-info h3 {
+    margin-top: 0;
+    color: #2c3e50;
+}
+
+.user-detail {
+    margin: 8px 0;
+}
+
+.user-detail strong {
+    color: #2c3e50;
+}
+
+/* 사용자 상세 모달 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.3s;
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 5% auto;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    animation: slideIn 0.3s;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-title {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.close {
+    font-size: 28px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close:hover {
+    color: #333;
+}
+
+.ssh-key-section {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 15px;
+}
+
+.ssh-key-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.key-field {
+    background-color: #fff;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.key-field strong {
+    color: #2c3e50;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
 #key-controls {
     display: flex;
     flex-wrap: wrap;
@@ -115,9 +365,6 @@ button.danger:hover {
 }
 
 #logout-btn {
-    position: absolute;
-    top: 0;
-    right: 0;
     background-color: #95a5a6;
     font-size: 13px;
     padding: 6px 12px;
@@ -179,7 +426,6 @@ button.danger:hover {
 
 .copy-cmd-btn {
     position: absolute;
-    /* 👇 우측 상단으로 위치 조정 */
     top: 10px;
     right: 10px;
     transform: none;
@@ -193,7 +439,7 @@ button.danger:hover {
     background-color: #95a5a6;
 }
 
-/* 👇 Key와 Copy Key 버튼을 감싸는 wrapper */
+/* Key와 Copy Key 버튼을 감싸는 wrapper */
 .key-content-wrapper {
     position: relative;
 }
@@ -209,7 +455,6 @@ button.danger:hover {
 }
 
 .copy-key-btn {
-    /* 👇 Key 박스의 우측 상단으로 위치 조정 */
     position: absolute;
     top: 10px;
     right: 10px;
@@ -225,4 +470,83 @@ button.danger:hover {
 
 .hidden {
     display: none !important;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .container-wide {
+        max-width: 95%;
+        padding: 20px;
+    }
+    
+    .header-section {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+    
+    .nav-buttons {
+        justify-content: center;
+    }
+    
+    .nav-btn {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .stats-section {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .users-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .ssh-key-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+    
+    .key-item {
+        padding: 10px;
+    }
+    
+    .command-display pre {
+        padding-right: 60px;
+        font-size: 12px;
+    }
+    
+    .copy-cmd-btn, .copy-key-btn {
+        padding: 3px 6px;
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .nav-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    #logout-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+    
+    .user-card {
+        padding: 10px;
+    }
+    
+    .stat-value {
+        font-size: 20px;
+    }
 }

@@ -40,65 +40,134 @@
     </div>
 
     <div id="key-section" class="hidden">
-        <button id="logout-btn">Logout</button>
-    
-        <h2>Key Management</h2>
-        <div id="key-controls">
-            <button id="create-btn">Create / Regenerate</button>
-            <button id="view-btn">View Key</button>
-            <button id="delete-btn" class="danger">Delete Key</button>
+        <div class="header-section">
+            <button id="logout-btn">Logout</button>
+            <div class="nav-buttons">
+                <button id="nav-keys" class="nav-btn active">내 키 관리</button>
+                <button id="nav-users" class="nav-btn">사용자 목록</button>
+                <button id="nav-profile" class="nav-btn">프로필</button>
+            </div>
         </div>
 
-        <h3>API Result</h3>
-        <p id="key-info"></p>
-        <div id="key-display-area" class="hidden">
-            <div class="key-item">
-                <div class="key-header">
-                    <h4>Public Key (.pub)</h4>
+        <!-- 키 관리 섹션 -->
+        <div id="keys-view" class="view-section">
+            <h2>SSH Key Management</h2>
+            <div id="key-controls">
+                <button id="create-btn">Create / Regenerate</button>
+                <button id="view-btn">View Key</button>
+                <button id="delete-btn" class="danger">Delete Key</button>
+            </div>
+
+            <h3>API Result</h3>
+            <p id="key-info"></p>
+            <div id="key-display-area" class="hidden">
+                <div class="key-item">
+                    <div class="key-header">
+                        <h4>Public Key (.pub)</h4>
+                    </div>
+                    <div class="command-display" title="Creates a new id_rsa.pub file with the key.">
+                        <pre id="cmd-public"></pre>
+                        <button class="copy-cmd-btn" data-target-id="cmd-public">Copy Cmd</button>
+                    </div>
+                    <div class="command-display" title="Appends the key to the authorized_keys file on a server.">
+                        <pre id="cmd-authorized-keys"></pre>
+                        <button class="copy-cmd-btn" data-target-id="cmd-authorized-keys">Copy Cmd</button>
+                    </div>
+                    <div class="key-content-wrapper">
+                        <pre id="key-public"></pre>
+                        <button class="copy-key-btn" data-target-id="key-public">Copy Key</button>
+                    </div>
                 </div>
-                <div class="command-display" title="Creates a new id_rsa.pub file with the key.">
-                    <pre id="cmd-public"></pre>
-                    <button class="copy-cmd-btn" data-target-id="cmd-public">Copy Cmd</button>
+                <div class="key-item">
+                    <div class="key-header">
+                        <h4>Private Key (PEM Format)</h4>
+                    </div>
+                    <div class="command-display">
+                        <pre id="cmd-pem"></pre>
+                        <button class="copy-cmd-btn" data-target-id="cmd-pem">Copy Cmd</button>
+                    </div>
+                    <div class="key-content-wrapper">
+                        <pre id="key-pem"></pre>
+                        <button class="copy-key-btn" data-target-id="key-pem">Copy Key</button>
+                    </div>
                 </div>
-                <div class="command-display" title="Appends the key to the authorized_keys file on a server.">
-                    <pre id="cmd-authorized-keys"></pre>
-                    <button class="copy-cmd-btn" data-target-id="cmd-authorized-keys">Copy Cmd</button>
-                </div>
-                <div class="key-content-wrapper">
-                    <pre id="key-public"></pre>
-                    <button class="copy-key-btn" data-target-id="key-public">Copy Key</button>
+                <div class="key-item">
+                    <div class="key-header">
+                        <h4>Private Key (PPK Format)</h4>
+                    </div>
+                    <div class="command-display">
+                        <pre id="cmd-ppk"></pre>
+                        <button class="copy-cmd-btn" data-target-id="cmd-ppk">Copy Cmd</button>
+                    </div>
+                    <div class="key-content-wrapper">
+                        <pre id="key-ppk"></pre>
+                        <button class="copy-key-btn" data-target-id="key-ppk">Copy Key</button>
+                    </div>
                 </div>
             </div>
-            <div class="key-item">
-                <div class="key-header">
-                    <h4>Private Key (PEM Format)</h4>
+        </div>
+
+        <!-- 사용자 목록 섹션 -->
+        <div id="users-view" class="view-section hidden">
+            <h2>사용자 목록</h2>
+            <div id="user-stats" class="stats-section">
+                <div class="stat-item">
+                    <span class="stat-label">전체 사용자:</span>
+                    <span id="total-users" class="stat-value">-</span>
                 </div>
-                <div class="command-display">
-                    <pre id="cmd-pem"></pre>
-                    <button class="copy-cmd-btn" data-target-id="cmd-pem">Copy Cmd</button>
-                </div>
-                <div class="key-content-wrapper">
-                    <pre id="key-pem"></pre>
-                    <button class="copy-key-btn" data-target-id="key-pem">Copy Key</button>
+                <div class="stat-item">
+                    <span class="stat-label">키 보유 사용자:</span>
+                    <span id="users-with-keys" class="stat-value">-</span>
                 </div>
             </div>
-            <div class="key-item">
-                <div class="key-header">
-                    <h4>Private Key (PPK Format)</h4>
-                </div>
-                <div class="command-display">
-                    <pre id="cmd-ppk"></pre>
-                    <button class="copy-cmd-btn" data-target-id="cmd-ppk">Copy Cmd</button>
-                </div>
-                <div class="key-content-wrapper">
-                    <pre id="key-ppk"></pre>
-                    <button class="copy-key-btn" data-target-id="key-ppk">Copy Key</button>
-                </div>
+            <div id="users-list" class="users-list">
+                <!-- 사용자 목록이 동적으로 여기에 추가됩니다 -->
+            </div>
+        </div>
+
+        <!-- 프로필 섹션 -->
+        <div id="profile-view" class="view-section hidden">
+            <h2>프로필 관리</h2>
+            <div class="form-container">
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label for="profile-username">사용자명:</label>
+                        <input type="text" id="profile-username" placeholder="새 사용자명">
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-password">새 비밀번호:</label>
+                        <input type="password" id="profile-password" placeholder="새 비밀번호 (선택사항)">
+                    </div>
+                    <button type="submit">프로필 업데이트</button>
+                </form>
+            </div>
+            <div id="current-user-info" class="user-info">
+                <!-- 현재 사용자 정보가 여기에 표시됩니다 -->
             </div>
         </div>
     </div>
 </div>
 
+<!-- 사용자 상세 모달 -->
+<div id="user-detail-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">사용자 상세 정보</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div id="user-detail-content">
+            <!-- 사용자 상세 정보가 여기에 표시됩니다 -->
+        </div>
+    </div>
+</div>
+
+<script src="js/auth-manager.js"></script>
+<script src="js/view-manager.js"></script>
+<script src="js/key-manager.js"></script>
+<script src="js/user-manager.js"></script>
+<script src="js/profile-manager.js"></script>
+<script src="js/modal-manager.js"></script>
+<script src="js/copy-manager.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
