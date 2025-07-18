@@ -1,7 +1,7 @@
 package config
 
 import (
-	"encoding/json"
+	"log"
 	"os"
 	"strconv"
 
@@ -11,30 +11,30 @@ import (
 // Config는 애플리케이션의 모든 설정을 담는 구조체입니다.
 type Config struct {
 	// Database settings
-	DBHost     string `json:"-"`
-	DBPort     string `json:"-"`
-	DBUser     string `json:"-"`
-	DBPassword string `json:"-"`
-	DBName     string `json:"-"`
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
 
 	// JWT settings
-	JWTSecret string `json:"-"`
+	JWTSecret string
 
 	// Server settings
-	ServerPort string `json:"ServerPort"`
-	KeyBits    int    `json:"KeyBits"`
+	ServerPort string
+	KeyBits    int
 
 	// SSH Key Auto Installation settings
-	AutoInstallKeys bool   `json:"-"`
-	SSHUser         string `json:"-"`
-	SSHHomePath     string `json:"-"`
+	AutoInstallKeys bool
+	SSHUser         string
+	SSHHomePath     string
 }
 
-// LoadConfig는 .env와 config.json 파일에서 설정을 로드합니다.
+// LoadConfig는 .env 파일에서 모든 설정을 로드합니다.
 func LoadConfig() (*Config, error) {
 	// .env 파일 로드
 	if err := godotenv.Load(); err != nil {
-		return nil, err
+		log.Printf("경고: .env 파일을 찾을 수 없습니다. 환경 변수를 직접 사용합니다.")
 	}
 
 	cfg := &Config{
@@ -44,32 +44,38 @@ func LoadConfig() (*Config, error) {
 		DBPassword:  os.Getenv("DB_PASSWORD"),
 		DBName:      os.Getenv("DB_NAME"),
 		JWTSecret:   os.Getenv("JWT_SECRET"),
+		ServerPort:  getEnv("SERVER_PORT", "8080"), // 기본값 설정
 		SSHUser:     os.Getenv("SSH_USER"),
 		SSHHomePath: os.Getenv("SSH_HOME_PATH"),
 	}
 
-	// AUTO_INSTALL_KEYS 환경변수 파싱 (기본값: false)
-	autoInstallStr := os.Getenv("AUTO_INSTALL_KEYS")
-	if autoInstallStr != "" {
-		autoInstall, err := strconv.ParseBool(autoInstallStr)
-		if err != nil {
-			cfg.AutoInstallKeys = false // 파싱 실패 시 기본값
-		} else {
-			cfg.AutoInstallKeys = autoInstall
-		}
-	}
-
-	// config.json 파일 로드
-	file, err := os.Open("config/config.json")
+	// KeyBits 파싱 (정수형)
+	keyBitsStr := getEnv("KEY_BITS", "4096")
+	keyBits, err := strconv.Atoi(keyBitsStr)
 	if err != nil {
-		return nil, err
+		log.Printf("경고: KEY_BITS 파싱 실패, 기본값(4096) 사용. 오류: %v", err)
+		cfg.KeyBits = 4096 // 파싱 실패 시 기본값
+	} else {
+		cfg.KeyBits = keyBits
 	}
-	defer file.Close()
 
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(cfg); err != nil {
-		return nil, err
+	// AutoInstallKeys 파싱 (불리언)
+	autoInstallStr := getEnv("AUTO_INSTALL_KEYS", "false")
+	autoInstall, err := strconv.ParseBool(autoInstallStr)
+	if err != nil {
+		log.Printf("경고: AUTO_INSTALL_KEYS 파싱 실패, 기본값(false) 사용. 오류: %v", err)
+		cfg.AutoInstallKeys = false // 파싱 실패 시 기본값
+	} else {
+		cfg.AutoInstallKeys = autoInstall
 	}
 
 	return cfg, nil
+}
+
+// getEnv는 환경 변수를 읽고, 값이 없을 경우 기본값을 반환하는 헬퍼 함수입니다.
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }
