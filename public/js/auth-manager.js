@@ -33,11 +33,14 @@ window.AuthManager = {
         const password = e.target.elements['login-password'].value;
 
         if (!username || !password) {
-            AppUtils.showError('사용자명과 비밀번호를 모두 입력해주세요.');
+            Utils.showToast('사용자명과 비밀번호를 모두 입력해주세요', 'warning');
             return;
         }
 
         try {
+            // 로딩 상태 표시
+            Utils.setLoading(true, '로그인 중...');
+            
             const data = await AppUtils.apiFetch('/login', 'POST', {
                 username: username,
                 password: password
@@ -47,6 +50,8 @@ window.AuthManager = {
             localStorage.setItem('jwtToken', AppState.jwtToken);
             
             console.log('로그인 성공:', username);
+            Utils.showToast(`환영합니다, ${username}님!`, 'success');
+            
             updateUI();
             KeyManager.hideKeys();
 
@@ -55,7 +60,9 @@ window.AuthManager = {
             
         } catch (error) {
             console.error('로그인 실패:', error.message);
-            // 에러는 이미 AppUtils.apiFetch에서 표시됨
+            // 에러는 이미 Utils.handleError에서 처리됨
+        } finally {
+            Utils.setLoading(false);
         }
     },
 
@@ -66,27 +73,30 @@ window.AuthManager = {
         const password = e.target.elements['register-password'].value;
 
         if (!username || !password) {
-            AppUtils.showError('사용자명과 비밀번호를 모두 입력해주세요.');
+            Utils.showToast('사용자명과 비밀번호를 모두 입력해주세요', 'warning');
             return;
         }
 
         if (username.length < 2) {
-            AppUtils.showError('사용자명은 최소 2자 이상이어야 합니다.');
+            Utils.showToast('사용자명은 최소 2자 이상이어야 합니다', 'warning');
             return;
         }
 
         if (password.length < 4) {
-            AppUtils.showError('비밀번호는 최소 4자 이상이어야 합니다.');
+            Utils.showToast('비밀번호는 최소 4자 이상이어야 합니다', 'warning');
             return;
         }
 
         try {
+            // 로딩 상태 표시
+            Utils.setLoading(true, '회원가입 중...');
+            
             await AppUtils.apiFetch('/register', 'POST', {
                 username: username,
                 password: password
             });
 
-            alert('회원가입이 완료되었습니다! 로그인해주세요.');
+            Utils.showToast(`${username}님, 회원가입이 완료되었습니다!`, 'success');
             console.log('회원가입 성공:', username);
             
             // 폼 초기화 및 로그인 화면으로 전환
@@ -94,17 +104,22 @@ window.AuthManager = {
             DOM.registerView.classList.add('hidden');
             DOM.loginView.classList.remove('hidden');
             
+            // 로그인 폼에 사용자명 자동 입력
+            DOM.loginForm.elements['login-username'].value = username;
+            DOM.loginForm.elements['login-password'].focus();
+            
         } catch (error) {
             console.error('회원가입 실패:', error.message);
-            // 에러는 이미 AppUtils.apiFetch에서 표시됨
+            // 에러는 이미 Utils.handleError에서 처리됨
+        } finally {
+            Utils.setLoading(false);
         }
     },
 
     handleLogout: function() {
-        const confirmLogout = confirm('정말 로그아웃하시겠습니까?');
-        if (!confirmLogout) return;
-
         console.log('로그아웃 실행');
+        
+        const username = AppState.currentUser?.username || '사용자';
         
         // 상태 초기화
         AppState.jwtToken = null;
@@ -125,6 +140,8 @@ window.AuthManager = {
         if (DOM.profileForm) {
             DOM.profileForm.reset();
         }
+        
+        Utils.showToast(`${username}님, 안전하게 로그아웃되었습니다`, 'info');
     },
 
     // 토큰 유효성 검사
@@ -142,7 +159,7 @@ window.AuthManager = {
         } catch (error) {
             console.error('토큰 유효성 검사 실패:', error.message);
             // 토큰이 무효한 경우 로그아웃 처리
-            AuthManager.handleLogout();
+            this.handleLogout();
             return false;
         }
     },

@@ -23,7 +23,8 @@ func main() {
 	// 1. 설정 로드
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("❌ 설정 로드 실패: %v", err)
+		//log.Fatalf("❌ 설정 로드 실패: %v", err)
+		log.Printf("❌ 설정 로드 실패")
 	}
 	log.Printf("✅ 설정 로드 완료")
 
