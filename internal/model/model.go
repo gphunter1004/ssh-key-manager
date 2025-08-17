@@ -121,19 +121,6 @@ type ServerCreateRequest struct {
 	Description string `json:"description"`
 }
 
-// KeyDeploymentRequest는 키 배포 요청 구조체입니다.
-type KeyDeploymentRequest struct {
-	ServerIDs []uint `json:"server_ids" binding:"required"`
-}
-
-// DeploymentResult는 배포 결과 구조체입니다.
-type DeploymentResult struct {
-	ServerID     uint   `json:"server_id"`
-	ServerName   string `json:"server_name"`
-	Status       string `json:"status"`
-	ErrorMessage string `json:"error_message,omitempty"`
-}
-
 // ServerUpdateRequest는 서버 수정 요청 구조체입니다.
 type ServerUpdateRequest struct {
 	Name        string `json:"name,omitempty"`
