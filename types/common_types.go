@@ -60,42 +60,166 @@ type ServerResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// === 부서 관련 요청/응답 구조체 ===
+
+// DepartmentCreateRequest는 부서 생성 요청 구조체입니다.
+type DepartmentCreateRequest struct {
+	Code        string `json:"code" binding:"required"` // 부서 코드
+	Name        string `json:"name" binding:"required"` // 부서명
+	Description string `json:"description"`             // 부서 설명
+	ParentID    *uint  `json:"parent_id"`               // 상위 부서 ID
+}
+
+// DepartmentUpdateRequest는 부서 수정 요청 구조체입니다.
+type DepartmentUpdateRequest struct {
+	Code        string `json:"code,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	ParentID    *uint  `json:"parent_id,omitempty"`
+	IsActive    *bool  `json:"is_active,omitempty"`
+}
+
+// DepartmentResponse는 부서 정보 응답 구조체입니다.
+type DepartmentResponse struct {
+	ID          uint      `json:"id"`
+	Code        string    `json:"code"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	ParentID    *uint     `json:"parent_id"`
+	Level       int       `json:"level"`
+	IsActive    bool      `json:"is_active"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+
+	// 관계 데이터
+	Parent    *DepartmentSimple  `json:"parent,omitempty"`
+	Children  []DepartmentSimple `json:"children,omitempty"`
+	UserCount int                `json:"user_count"`
+}
+
+// DepartmentSimple은 간단한 부서 정보입니다.
+type DepartmentSimple struct {
+	ID    uint   `json:"id"`
+	Code  string `json:"code"`
+	Name  string `json:"name"`
+	Level int    `json:"level"`
+}
+
+// DepartmentTreeResponse는 부서 트리 구조 응답입니다.
+type DepartmentTreeResponse struct {
+	ID        uint                     `json:"id"`
+	Code      string                   `json:"code"`
+	Name      string                   `json:"name"`
+	Level     int                      `json:"level"`
+	IsActive  bool                     `json:"is_active"`
+	UserCount int                      `json:"user_count"`
+	Children  []DepartmentTreeResponse `json:"children,omitempty"`
+}
+
+// === 사용자 부서 관련 ===
+
+// UserDepartmentUpdateRequest는 사용자 부서 변경 요청입니다.
+type UserDepartmentUpdateRequest struct {
+	DepartmentID uint   `json:"department_id" binding:"required"`
+	Position     string `json:"position"`
+	Reason       string `json:"reason"`
+}
+
+// UserWithDepartmentResponse는 부서 정보를 포함한 사용자 응답입니다.
+type UserWithDepartmentResponse struct {
+	ID         uint       `json:"id"`
+	Username   string     `json:"username"`
+	Role       string     `json:"role"`
+	EmployeeID string     `json:"employee_id"`
+	Position   string     `json:"position"`
+	Email      string     `json:"email"`
+	Phone      string     `json:"phone"`
+	JoinDate   *time.Time `json:"join_date"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+
+	// 부서 정보
+	Department *DepartmentSimple `json:"department,omitempty"`
+	HasSSHKey  bool              `json:"has_ssh_key"`
+}
+
+// DepartmentHistoryResponse는 부서 변경 이력 응답입니다.
+type DepartmentHistoryResponse struct {
+	ID           uint              `json:"id"`
+	UserID       uint              `json:"user_id"`
+	PreviousDept *DepartmentSimple `json:"previous_department,omitempty"`
+	NewDept      DepartmentSimple  `json:"new_department"`
+	ChangeDate   time.Time         `json:"change_date"`
+	ChangedBy    UserSimple        `json:"changed_by"`
+	Reason       string            `json:"reason"`
+}
+
 // === 사용자 관리 관련 ===
 
 // UserProfileUpdate는 사용자 프로필 업데이트용 구조체입니다.
 type UserProfileUpdate struct {
-	Username    string `json:"username,omitempty"`
-	NewPassword string `json:"new_password,omitempty"`
+	Username    string     `json:"username,omitempty"`
+	NewPassword string     `json:"new_password,omitempty"`
+	EmployeeID  string     `json:"employee_id,omitempty"`
+	Position    string     `json:"position,omitempty"`
+	Email       string     `json:"email,omitempty"`
+	Phone       string     `json:"phone,omitempty"`
+	JoinDate    *time.Time `json:"join_date,omitempty"`
 }
 
 // UserInfo는 사용자 기본 정보를 담는 구조체입니다.
 type UserInfo struct {
-	ID        uint      `json:"id"`
-	Username  string    `json:"username"`
-	Role      string    `json:"role"`      // 권한 추가
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	HasSSHKey bool      `json:"has_ssh_key"`
+	ID         uint              `json:"id"`
+	Username   string            `json:"username"`
+	Role       string            `json:"role"`
+	EmployeeID string            `json:"employee_id"`
+	Position   string            `json:"position"`
+	Email      string            `json:"email"`
+	Phone      string            `json:"phone"`
+	JoinDate   *time.Time        `json:"join_date"`
+	CreatedAt  time.Time         `json:"created_at"`
+	UpdatedAt  time.Time         `json:"updated_at"`
+	HasSSHKey  bool              `json:"has_ssh_key"`
+	Department *DepartmentSimple `json:"department,omitempty"`
 }
 
 // UserDetailWithKey는 SSH 키 정보를 포함한 사용자 상세 정보입니다.
 type UserDetailWithKey struct {
-	ID        uint            `json:"id"`
-	Username  string          `json:"username"`
-	Role      string          `json:"role"`      // 권한 추가
-	CreatedAt time.Time       `json:"created_at"`
-	UpdatedAt time.Time       `json:"updated_at"`
-	HasSSHKey bool            `json:"has_ssh_key"`
-	SSHKey    *SSHKeyResponse `json:"ssh_key,omitempty"`
+	ID         uint              `json:"id"`
+	Username   string            `json:"username"`
+	Role       string            `json:"role"`
+	EmployeeID string            `json:"employee_id"`
+	Position   string            `json:"position"`
+	Email      string            `json:"email"`
+	Phone      string            `json:"phone"`
+	JoinDate   *time.Time        `json:"join_date"`
+	CreatedAt  time.Time         `json:"created_at"`
+	UpdatedAt  time.Time         `json:"updated_at"`
+	HasSSHKey  bool              `json:"has_ssh_key"`
+	Department *DepartmentSimple `json:"department,omitempty"`
+	SSHKey     *SSHKeyResponse   `json:"ssh_key,omitempty"`
 }
 
 // UserResponse는 API용 사용자 정보 응답 구조체입니다.
 type UserResponse struct {
-	ID        uint      `json:"id"`
-	Username  string    `json:"username"`
-	Role      string    `json:"role"`      // 권한 추가
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID         uint              `json:"id"`
+	Username   string            `json:"username"`
+	Role       string            `json:"role"`
+	EmployeeID string            `json:"employee_id"`
+	Position   string            `json:"position"`
+	Email      string            `json:"email"`
+	Phone      string            `json:"phone"`
+	JoinDate   *time.Time        `json:"join_date"`
+	CreatedAt  time.Time         `json:"created_at"`
+	UpdatedAt  time.Time         `json:"updated_at"`
+	Department *DepartmentSimple `json:"department,omitempty"`
+}
+
+// UserSimple은 간단한 사용자 정보입니다.
+type UserSimple struct {
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	Position string `json:"position,omitempty"`
 }
 
 // === 권한 관리 관련 ===
@@ -164,6 +288,25 @@ type AdminStats struct {
 	TotalServers     int64 `json:"total_servers"`
 	TotalSSHKeys     int64 `json:"total_ssh_keys"`
 	TotalDeployments int64 `json:"total_deployments"`
+	TotalDepartments int64 `json:"total_departments"`
+}
+
+// DepartmentStats는 부서별 통계 정보입니다.
+type DepartmentStats struct {
+	TotalDepartments   int64 `json:"total_departments"`
+	ActiveDepartments  int64 `json:"active_departments"`
+	TotalUsers         int64 `json:"total_users"`
+	UsersWithDept      int64 `json:"users_with_department"`
+	UsersWithoutDept   int64 `json:"users_without_department"`
+	MaxDepartmentLevel int   `json:"max_department_level"`
+}
+
+// DepartmentUserStats는 부서별 사용자 통계입니다.
+type DepartmentUserStats struct {
+	Department  DepartmentSimple `json:"department"`
+	UserCount   int              `json:"user_count"`
+	AdminCount  int              `json:"admin_count"`
+	SSHKeyCount int              `json:"ssh_key_count"`
 }
 
 // === 페이징 관련 ===
@@ -272,27 +415,61 @@ type ServerDeployResult struct {
 
 // ToUserInfo는 모델을 UserInfo로 변환합니다.
 func ToUserInfo(user models.User, hasSSHKey bool) UserInfo {
-	return UserInfo{
-		ID:        user.ID,
-		Username:  user.Username,
-		Role:      string(user.Role), // Role 추가
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		HasSSHKey: hasSSHKey,
+	userInfo := UserInfo{
+		ID:         user.ID,
+		Username:   user.Username,
+		Role:       string(user.Role),
+		EmployeeID: user.EmployeeID,
+		Position:   user.Position,
+		Email:      user.Email,
+		Phone:      user.Phone,
+		JoinDate:   user.JoinDate,
+		CreatedAt:  user.CreatedAt,
+		UpdatedAt:  user.UpdatedAt,
+		HasSSHKey:  hasSSHKey,
 	}
+
+	// 부서 정보 추가
+	if user.Department != nil {
+		userInfo.Department = &DepartmentSimple{
+			ID:    user.Department.ID,
+			Code:  user.Department.Code,
+			Name:  user.Department.Name,
+			Level: user.Department.Level,
+		}
+	}
+
+	return userInfo
 }
 
 // ToUserDetailWithKey는 모델을 UserDetailWithKey로 변환합니다.
 func ToUserDetailWithKey(user models.User, hasSSHKey bool, sshKey *SSHKeyResponse) UserDetailWithKey {
-	return UserDetailWithKey{
-		ID:        user.ID,
-		Username:  user.Username,
-		Role:      string(user.Role), // Role 추가
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		HasSSHKey: hasSSHKey,
-		SSHKey:    sshKey,
+	userDetail := UserDetailWithKey{
+		ID:         user.ID,
+		Username:   user.Username,
+		Role:       string(user.Role),
+		EmployeeID: user.EmployeeID,
+		Position:   user.Position,
+		Email:      user.Email,
+		Phone:      user.Phone,
+		JoinDate:   user.JoinDate,
+		CreatedAt:  user.CreatedAt,
+		UpdatedAt:  user.UpdatedAt,
+		HasSSHKey:  hasSSHKey,
+		SSHKey:     sshKey,
 	}
+
+	// 부서 정보 추가
+	if user.Department != nil {
+		userDetail.Department = &DepartmentSimple{
+			ID:    user.Department.ID,
+			Code:  user.Department.Code,
+			Name:  user.Department.Name,
+			Level: user.Department.Level,
+		}
+	}
+
+	return userDetail
 }
 
 // ToServerResponse는 모델을 ServerResponse로 변환합니다.
@@ -323,4 +500,104 @@ func ToSSHKeyResponse(sshKey models.SSHKey, fingerprint string) SSHKeyResponse {
 		UpdatedAt:   sshKey.UpdatedAt,
 		Fingerprint: fingerprint,
 	}
+}
+
+func ToDepartmentResponse(dept models.Department) DepartmentResponse {
+	response := DepartmentResponse{
+		ID:          dept.ID,
+		Code:        dept.Code,
+		Name:        dept.Name,
+		Description: dept.Description,
+		ParentID:    dept.ParentID,
+		Level:       dept.Level,
+		IsActive:    dept.IsActive,
+		CreatedAt:   dept.CreatedAt,
+		UpdatedAt:   dept.UpdatedAt,
+	}
+
+	// 상위 부서 정보
+	if dept.Parent != nil {
+		response.Parent = &DepartmentSimple{
+			ID:    dept.Parent.ID,
+			Code:  dept.Parent.Code,
+			Name:  dept.Parent.Name,
+			Level: dept.Parent.Level,
+		}
+	}
+
+	// 하위 부서 정보
+	if len(dept.Children) > 0 {
+		for _, child := range dept.Children {
+			response.Children = append(response.Children, DepartmentSimple{
+				ID:    child.ID,
+				Code:  child.Code,
+				Name:  child.Name,
+				Level: child.Level,
+			})
+		}
+	}
+
+	return response
+}
+
+// ToUserWithDepartmentResponse는 모델을 UserWithDepartmentResponse로 변환합니다.
+func ToUserWithDepartmentResponse(user models.User, hasSSHKey bool) UserWithDepartmentResponse {
+	response := UserWithDepartmentResponse{
+		ID:         user.ID,
+		Username:   user.Username,
+		Role:       string(user.Role),
+		EmployeeID: user.EmployeeID,
+		Position:   user.Position,
+		Email:      user.Email,
+		Phone:      user.Phone,
+		JoinDate:   user.JoinDate,
+		CreatedAt:  user.CreatedAt,
+		UpdatedAt:  user.UpdatedAt,
+		HasSSHKey:  hasSSHKey,
+	}
+
+	// 부서 정보
+	if user.Department != nil {
+		response.Department = &DepartmentSimple{
+			ID:    user.Department.ID,
+			Code:  user.Department.Code,
+			Name:  user.Department.Name,
+			Level: user.Department.Level,
+		}
+	}
+
+	return response
+}
+
+// ToDepartmentHistoryResponse는 모델을 DepartmentHistoryResponse로 변환합니다.
+func ToDepartmentHistoryResponse(history models.DepartmentHistory) DepartmentHistoryResponse {
+	response := DepartmentHistoryResponse{
+		ID:         history.ID,
+		UserID:     history.UserID,
+		ChangeDate: history.ChangeDate,
+		Reason:     history.Reason,
+		NewDept: DepartmentSimple{
+			ID:    history.NewDept.ID,
+			Code:  history.NewDept.Code,
+			Name:  history.NewDept.Name,
+			Level: history.NewDept.Level,
+		},
+		ChangedBy: UserSimple{
+			ID:       history.ChangedByUser.ID,
+			Username: history.ChangedByUser.Username,
+			Position: history.ChangedByUser.Position,
+		},
+	}
+
+	// 이전 부서 정보 (있는 경우)
+	if history.PreviousDept != nil {
+		response.PreviousDept = &DepartmentSimple{
+			ID:    history.PreviousDept.ID,
+			Code:  history.PreviousDept.Code,
+			Name:  history.PreviousDept.Name,
+			Level: history.PreviousDept.Level,
+		}
+	}
+
+	return response
 }

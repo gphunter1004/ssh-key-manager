@@ -1,11 +1,61 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 var DB *gorm.DB
 
 func SetDB(db *gorm.DB) {
 	DB = db
+}
+
+// UserRole은 사용자 권한을 정의하는 열거형입니다.
+type UserRole string
+
+const (
+	RoleUser  UserRole = "user"  // 일반 사용자
+	RoleAdmin UserRole = "admin" // 관리자
+)
+
+// User는 사용자 정보를 저장하는 모델입니다.
+type User struct {
+	gorm.Model
+	Username string   `gorm:"unique;not null"`
+	Password string   `gorm:"not null"`
+	Role     UserRole `gorm:"not null;default:'user'"`
+
+	// 부서 관련 필드 추가
+	DepartmentID *uint      `gorm:"index"`           // 부서 ID (NULL 가능)
+	EmployeeID   string     `gorm:"unique;size:20"`  // 사번 (선택사항)
+	Position     string     `gorm:"size:50"`         // 직책 (예: 팀장, 사원)
+	JoinDate     *time.Time `gorm:""`                // 입사일
+	Email        string     `gorm:"unique;size:100"` // 이메일
+	Phone        string     `gorm:"size:20"`         // 연락처
+
+	// 관계 정의
+	Department *Department `gorm:"foreignKey:DepartmentID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"` // 소속 부서
+	SSHKeys    []SSHKey    `gorm:"foreignKey:UserID"`                                                     // SSH 키들
+	Servers    []Server    `gorm:"foreignKey:UserID"`                                                     // 등록한 서버들
+
+	// 부서 변경 이력
+	DepartmentHistories []DepartmentHistory `gorm:"foreignKey:UserID"`
+	ChangedHistories    []DepartmentHistory `gorm:"foreignKey:ChangedBy"`
+}
+
+// SSHKey는 SSH 키 정보를 저장하는 모델입니다.
+type SSHKey struct {
+	gorm.Model
+	UserID     uint   `gorm:"not null;index"`                                // 인덱스 추가로 성능 향상
+	Algorithm  string `gorm:"not null;default:'RSA'"`                        // 알고리즘 (RSA, ECDSA 등)
+	Bits       int    `gorm:"not null;default:4096"`                         // 키 크기
+	PrivateKey string `gorm:"type:text;not null"`                            // PEM 형식 개인키
+	PublicKey  string `gorm:"type:text;not null"`                            // SSH 공개키 (authorized_keys 형식)
+	PEM        string `gorm:"type:text;not null"`                            // PEM 형식 개인키 (PrivateKey와 동일)
+	PPK        string `gorm:"type:text;not null"`                            // PuTTY 형식 개인키
+	User       User   `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"` // 외래키 제약조건 추가
 }
 
 // Server는 원격 서버 정보를 저장하는 모델입니다.
@@ -33,33 +83,4 @@ type ServerKeyDeployment struct {
 	Server     Server          `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE"` // 외래키 제약조건
 	SSHKey     SSHKey          `gorm:"foreignKey:SSHKeyID;constraint:OnDelete:CASCADE"` // 외래키 제약조건
 	User       User            `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`   // 외래키 제약조건
-}
-
-type SSHKey struct {
-	gorm.Model
-	UserID     uint   `gorm:"not null;index"`                                // 인덱스 추가로 성능 향상
-	Algorithm  string `gorm:"not null;default:'RSA'"`                        // 알고리즘 (RSA, ECDSA 등)
-	Bits       int    `gorm:"not null;default:4096"`                         // 키 크기
-	PrivateKey string `gorm:"type:text;not null"`                            // PEM 형식 개인키
-	PublicKey  string `gorm:"type:text;not null"`                            // SSH 공개키 (authorized_keys 형식)
-	PEM        string `gorm:"type:text;not null"`                            // PEM 형식 개인키 (PrivateKey와 동일)
-	PPK        string `gorm:"type:text;not null"`                            // PuTTY 형식 개인키
-	User       User   `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"` // 외래키 제약조건 추가
-}
-
-// UserRole은 사용자 권한을 정의하는 열거형입니다.
-type UserRole string
-
-const (
-	RoleUser  UserRole = "user"  // 일반 사용자
-	RoleAdmin UserRole = "admin" // 관리자
-)
-
-// User는 사용자 정보를 저장하는 모델입니다.
-// JSON 태그 제거 - API 응답용은 types 패키지 사용
-type User struct {
-	gorm.Model
-	Username string   `gorm:"unique;not null"`
-	Password string   `gorm:"not null"`
-	Role     UserRole `gorm:"not null;default:'user'"`
 }
