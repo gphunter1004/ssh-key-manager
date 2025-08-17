@@ -54,31 +54,3 @@ func UpdateUserProfile(c echo.Context) error {
 
 	return SuccessWithMessageResponse(c, "프로필이 업데이트되었습니다", user)
 }
-
-// GetAllUsers는 모든 사용자 목록을 반환합니다 (관리자용).
-func GetAllUsers(c echo.Context) error {
-	users, err := service.GetAllUsers()
-	if err != nil {
-		return InternalServerErrorResponse(c, err.Error())
-	}
-
-	return SuccessResponse(c, users)
-}
-
-// GetUserDetail은 특정 사용자의 상세 정보를 반환합니다 (관리자용).
-func GetUserDetail(c echo.Context) error {
-	// TODO: URL 파라미터에서 사용자 ID 추출 후 구현
-	return InternalServerErrorResponse(c, "아직 구현되지 않았습니다")
-}
-
-// UpdateUserRole은 사용자 권한을 변경합니다 (관리자용).
-func UpdateUserRole(c echo.Context) error {
-	// TODO: 구현 필요
-	return InternalServerErrorResponse(c, "아직 구현되지 않았습니다")
-}
-
-// DeleteUser는 사용자를 삭제합니다 (관리자용).
-func DeleteUser(c echo.Context) error {
-	// TODO: 구현 필요
-	return InternalServerErrorResponse(c, "아직 구현되지 않았습니다")
-}
