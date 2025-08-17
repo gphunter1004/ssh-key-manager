@@ -2,21 +2,14 @@ package handler
 
 import (
 	"net/http"
+	"ssh-key-manager/internal/model"
 
 	"github.com/labstack/echo/v4"
 )
 
-// APIResponse는 표준 API 응답 구조체입니다.
-type APIResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
-}
-
 // SuccessResponse는 성공 응답을 생성합니다.
 func SuccessResponse(c echo.Context, data interface{}) error {
-	return c.JSON(http.StatusOK, APIResponse{
+	return c.JSON(http.StatusOK, model.APIResponse{
 		Success: true,
 		Data:    data,
 	})
@@ -24,7 +17,7 @@ func SuccessResponse(c echo.Context, data interface{}) error {
 
 // SuccessWithMessageResponse는 메시지와 함께 성공 응답을 생성합니다.
 func SuccessWithMessageResponse(c echo.Context, message string, data interface{}) error {
-	return c.JSON(http.StatusOK, APIResponse{
+	return c.JSON(http.StatusOK, model.APIResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
@@ -33,7 +26,7 @@ func SuccessWithMessageResponse(c echo.Context, message string, data interface{}
 
 // CreatedResponse는 생성 성공 응답을 생성합니다.
 func CreatedResponse(c echo.Context, message string, data interface{}) error {
-	return c.JSON(http.StatusCreated, APIResponse{
+	return c.JSON(http.StatusCreated, model.APIResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
@@ -42,7 +35,7 @@ func CreatedResponse(c echo.Context, message string, data interface{}) error {
 
 // ErrorResponse는 에러 응답을 생성합니다.
 func ErrorResponse(c echo.Context, statusCode int, message string) error {
-	return c.JSON(statusCode, APIResponse{
+	return c.JSON(statusCode, model.APIResponse{
 		Success: false,
 		Error:   message,
 	})
