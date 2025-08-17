@@ -1,11 +1,11 @@
 package controllers
 
 import (
+	"fmt"
 	"ssh-key-manager/helpers"
 	"ssh-key-manager/services"
 	"ssh-key-manager/types"
 	"ssh-key-manager/utils"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -23,21 +23,30 @@ import (
 // @Failure 401 {object} map[string]interface{}
 // @Router /servers [post]
 func CreateServer(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
 	var req types.ServerCreateRequest
-	if err := c.Bind(&req); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid request body")
+	if err := utils.BindAndValidate(c, &req); err != nil {
+		return err
 	}
 
-	server, err := services.CreateServer(userID, req)
+	var server interface{}
+	err = utils.LogOperation("서버 등록", func() error {
+		utils.LogServiceCall("ServerService", "CreateServer", userID, req.Name, req.Host)
+		var createErr error
+		server, createErr = services.CreateServer(userID, req)
+		return createErr
+	})
+
 	if err != nil {
-		return helpers.BadRequestResponse(c, err.Error())
+		utils.LogUserAction(userID, "등록", "서버", false, err.Error())
+		return utils.HandleServiceError(c, err, "서버 등록")
 	}
 
+	utils.LogUserAction(userID, "등록", "서버", true, req.Name)
 	return helpers.CreatedResponse(c, "서버가 성공적으로 등록되었습니다", server)
 }
 
@@ -52,27 +61,35 @@ func CreateServer(c echo.Context) error {
 // @Failure 401 {object} map[string]interface{}
 // @Router /servers [get]
 func GetServers(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
 	// 페이징 및 검색 파라미터 처리
-	var pagination types.PaginationRequest
-	var search types.SearchRequest
-	
-	if err := c.Bind(&pagination); err == nil {
-		pagination = pagination.GetDefaultPagination()
-	}
-	c.Bind(&search)
+	page, limit := utils.ExtractPaginationParams(c)
+	sortBy, sortOrder := utils.ExtractSortParams(c, "created_at")
+	searchQuery, _ := utils.ExtractSearchParams(c)
 
+	utils.LogServiceCall("ServerService", "GetUserServers", userID, page, limit)
 	servers, err := services.GetUserServers(userID)
 	if err != nil {
+		utils.LogUserAction(userID, "조회", "서버 목록", false, err.Error())
 		return helpers.InternalServerErrorResponse(c, err.Error())
 	}
 
+	utils.LogUserAction(userID, "조회", "서버 목록", true, fmt.Sprintf("총 %d개", len(servers)))
+
 	// TODO: 실제로는 서비스에서 페이징과 검색을 처리해야 함
-	return helpers.ListResponse(c, servers, len(servers))
+	metadata := map[string]interface{}{
+		"page":       page,
+		"limit":      limit,
+		"sort_by":    sortBy,
+		"sort_order": sortOrder,
+		"search":     searchQuery,
+	}
+
+	return helpers.APIResponseWithMetadata(c, servers, metadata)
 }
 
 // GetServer godoc
@@ -89,22 +106,24 @@ func GetServers(c echo.Context) error {
 // @Failure 404 {object} map[string]interface{}
 // @Router /servers/{id} [get]
 func GetServer(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
-	serverIDParam := c.Param("id")
-	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
+	serverID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return helpers.BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
+		return helpers.BadRequestResponse(c, err.Error())
 	}
 
-	server, err := services.GetServerByID(userID, uint(serverID))
+	utils.LogServiceCall("ServerService", "GetServerByID", userID, serverID)
+	server, err := services.GetServerByID(userID, serverID)
 	if err != nil {
+		utils.LogUserAction(userID, "조회", "서버", false, err.Error())
 		return helpers.NotFoundResponse(c, err.Error())
 	}
 
+	utils.LogUserAction(userID, "조회", "서버", true, fmt.Sprintf("ID: %d", serverID))
 	return helpers.SuccessResponse(c, server)
 }
 
@@ -123,27 +142,35 @@ func GetServer(c echo.Context) error {
 // @Failure 404 {object} map[string]interface{}
 // @Router /servers/{id} [put]
 func UpdateServer(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
-	serverIDParam := c.Param("id")
-	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
-	if err != nil {
-		return helpers.BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
-	}
-
-	var req types.ServerUpdateRequest
-	if err := c.Bind(&req); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid request body")
-	}
-
-	server, err := services.UpdateServer(userID, uint(serverID), req)
+	serverID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
 		return helpers.BadRequestResponse(c, err.Error())
 	}
 
+	var req types.ServerUpdateRequest
+	if err := utils.BindAndValidate(c, &req); err != nil {
+		return err
+	}
+
+	var server interface{}
+	err = utils.LogOperation("서버 수정", func() error {
+		utils.LogServiceCall("ServerService", "UpdateServer", userID, serverID)
+		var updateErr error
+		server, updateErr = services.UpdateServer(userID, serverID, req)
+		return updateErr
+	})
+
+	if err != nil {
+		utils.LogUserAction(userID, "수정", "서버", false, err.Error())
+		return utils.HandleServiceError(c, err, "서버 수정")
+	}
+
+	utils.LogUserAction(userID, "수정", "서버", true, fmt.Sprintf("ID: %d", serverID))
 	return helpers.SuccessWithMessageResponse(c, "서버 정보가 업데이트되었습니다", server)
 }
 
@@ -161,21 +188,28 @@ func UpdateServer(c echo.Context) error {
 // @Failure 404 {object} map[string]interface{}
 // @Router /servers/{id} [delete]
 func DeleteServer(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
-	serverIDParam := c.Param("id")
-	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
+	serverID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return helpers.BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
+		return helpers.BadRequestResponse(c, err.Error())
 	}
 
-	if err := services.DeleteServer(userID, uint(serverID)); err != nil {
+	err = utils.LogOperation("서버 삭제", func() error {
+		utils.LogServiceCall("ServerService", "DeleteServer", userID, serverID)
+		return services.DeleteServer(userID, serverID)
+	})
+
+	if err != nil {
+		utils.LogUserAction(userID, "삭제", "서버", false, err.Error())
 		return helpers.NotFoundResponse(c, err.Error())
 	}
 
+	utils.LogUserAction(userID, "삭제", "서버", true, fmt.Sprintf("ID: %d", serverID))
+	utils.LogSecurityEvent("서버 삭제", userID, fmt.Sprintf("서버 ID: %d", serverID), "low")
 	return helpers.SuccessWithMessageResponse(c, "서버가 삭제되었습니다", nil)
 }
 
@@ -192,29 +226,38 @@ func DeleteServer(c echo.Context) error {
 // @Failure 401 {object} map[string]interface{}
 // @Router /servers/deploy [post]
 func DeployKeyToServers(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
 	var req types.KeyDeploymentRequest
-	if err := c.Bind(&req); err != nil {
-		return helpers.BadRequestResponse(c, "Invalid request body")
+	if err := utils.BindAndValidate(c, &req); err != nil {
+		return err
 	}
 
 	if len(req.ServerIDs) == 0 {
 		return helpers.BadRequestResponse(c, "배포할 서버를 선택해주세요")
 	}
 
-	results, err := services.DeployKeyToServers(userID, req)
+	var results interface{}
+	err = utils.LogOperation("SSH 키 배포", func() error {
+		utils.LogServiceCall("ServerService", "DeployKeyToServers", userID, len(req.ServerIDs))
+		var deployErr error
+		results, deployErr = services.DeployKeyToServers(userID, req)
+		return deployErr
+	})
+
 	if err != nil {
-		return helpers.BadRequestResponse(c, err.Error())
+		utils.LogUserAction(userID, "배포", "SSH 키", false, err.Error())
+		return utils.HandleServiceError(c, err, "키 배포")
 	}
 
 	// 성공/실패 카운트
+	resultsSlice := results.([]types.DeploymentResult)
 	successCount := 0
 	failedCount := 0
-	for _, result := range results {
+	for _, result := range resultsSlice {
 		if result.Status == "success" {
 			successCount++
 		} else {
@@ -223,7 +266,7 @@ func DeployKeyToServers(c echo.Context) error {
 	}
 
 	summary := types.DeploymentSummary{
-		Total:   len(results),
+		Total:   len(resultsSlice),
 		Success: successCount,
 		Failed:  failedCount,
 	}
@@ -231,6 +274,14 @@ func DeployKeyToServers(c echo.Context) error {
 	responseData := map[string]interface{}{
 		"results": results,
 		"summary": summary,
+	}
+
+	utils.LogUserAction(userID, "배포", "SSH 키", true,
+		fmt.Sprintf("총 %d개 서버 (성공: %d, 실패: %d)", len(req.ServerIDs), successCount, failedCount))
+
+	if failedCount > 0 {
+		utils.LogSecurityEvent("키 배포 부분 실패", userID,
+			fmt.Sprintf("성공: %d, 실패: %d", successCount, failedCount), "medium")
 	}
 
 	return helpers.SuccessWithMessageResponse(c, "키 배포가 완료되었습니다", responseData)
@@ -247,16 +298,19 @@ func DeployKeyToServers(c echo.Context) error {
 // @Failure 401 {object} map[string]interface{}
 // @Router /servers/deployments [get]
 func GetDeploymentHistory(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
+	utils.LogServiceCall("ServerService", "GetDeploymentHistory", userID)
 	history, err := services.GetDeploymentHistory(userID)
 	if err != nil {
+		utils.LogUserAction(userID, "조회", "배포 이력", false, err.Error())
 		return helpers.InternalServerErrorResponse(c, err.Error())
 	}
 
+	utils.LogUserAction(userID, "조회", "배포 이력", true, fmt.Sprintf("총 %d건", len(history)))
 	return helpers.ListResponse(c, history, len(history))
 }
 
@@ -274,36 +328,50 @@ func GetDeploymentHistory(c echo.Context) error {
 // @Failure 404 {object} map[string]interface{}
 // @Router /servers/{id}/test [post]
 func TestServerConnection(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
-	serverIDParam := c.Param("id")
-	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
+	serverID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return helpers.BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
+		return helpers.BadRequestResponse(c, err.Error())
 	}
 
 	// 서버 정보 조회
-	server, err := services.GetServerByID(userID, uint(serverID))
+	utils.LogServiceCall("ServerService", "GetServerByID", userID, serverID)
+	server, err := services.GetServerByID(userID, serverID)
 	if err != nil {
+		utils.LogUserAction(userID, "테스트", "서버 연결", false, err.Error())
 		return helpers.NotFoundResponse(c, err.Error())
 	}
 
 	// 연결 테스트 실행
-	if err := utils.TestRemoteServerConnection(server.Host, server.Port, server.Username); err != nil {
-		result := types.ConnectionTestResult{
-			Success: false,
-			Message: "연결 테스트 실패",
-			Error:   err.Error(),
+	var result types.ConnectionTestResult
+	err = utils.LogOperation("서버 연결 테스트", func() error {
+		utils.LogServiceCall("ServerService", "TestRemoteServerConnection", userID, server.Host)
+		testErr := utils.TestRemoteServerConnection(server.Host, server.Port, server.Username)
+		if testErr != nil {
+			result = types.ConnectionTestResult{
+				Success: false,
+				Message: "연결 테스트 실패",
+				Error:   testErr.Error(),
+			}
+			return testErr
 		}
-		return helpers.SuccessResponse(c, result)
+
+		result = types.ConnectionTestResult{
+			Success: true,
+			Message: "연결 테스트 성공",
+		}
+		return nil
+	})
+
+	if err != nil {
+		utils.LogUserAction(userID, "테스트", "서버 연결", false, fmt.Sprintf("%s:%d", server.Host, server.Port))
+	} else {
+		utils.LogUserAction(userID, "테스트", "서버 연결", true, fmt.Sprintf("%s:%d", server.Host, server.Port))
 	}
 
-	result := types.ConnectionTestResult{
-		Success: true,
-		Message: "연결 테스트 성공",
-	}
 	return helpers.SuccessResponse(c, result)
 }

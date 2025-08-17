@@ -4,6 +4,7 @@ import (
 	"ssh-key-manager/helpers"
 	"ssh-key-manager/services"
 	"ssh-key-manager/types"
+	"ssh-key-manager/utils"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -123,7 +124,7 @@ func UpdateUserDepartment(c echo.Context) error {
 	}
 
 	// 현재 로그인한 사용자 ID 추출
-	changedBy, err := userIDFromToken(c)
+	changedBy, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}

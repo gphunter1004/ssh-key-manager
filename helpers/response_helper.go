@@ -3,6 +3,7 @@ package helpers
 import (
 	"net/http"
 	"ssh-key-manager/types"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -85,5 +86,87 @@ func ValidationErrorResponse(c echo.Context, errors []types.ValidationError) err
 	return c.JSON(http.StatusBadRequest, types.ValidationErrorResponse{
 		Error:  "입력값 검증에 실패했습니다",
 		Errors: errors,
+	})
+}
+
+// TimestampedResponse 타임스탬프가 포함된 응답
+func TimestampedResponse(c echo.Context, statusCode int, success bool, message string, data interface{}) error {
+	response := map[string]interface{}{
+		"success":   success,
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	if message != "" {
+		response["message"] = message
+	}
+
+	if data != nil {
+		response["data"] = data
+	}
+
+	return c.JSON(statusCode, response)
+}
+
+// StandardSuccessResponse 표준 성공 응답
+func StandardSuccessResponse(c echo.Context, message string, data interface{}) error {
+	return TimestampedResponse(c, http.StatusOK, true, message, data)
+}
+
+// StandardErrorResponse 표준 에러 응답
+func StandardErrorResponse(c echo.Context, statusCode int, message string) error {
+	return TimestampedResponse(c, statusCode, false, message, nil)
+}
+
+// APIResponseWithMetadata 메타데이터가 포함된 응답
+func APIResponseWithMetadata(c echo.Context, data interface{}, metadata map[string]interface{}) error {
+	response := types.APIResponse{
+		Success: true,
+		Data:    data,
+	}
+
+	// 메타데이터 추가
+	if metadata != nil {
+		responseMap := map[string]interface{}{
+			"success":  true,
+			"data":     data,
+			"metadata": metadata,
+		}
+		return c.JSON(http.StatusOK, responseMap)
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+// ConflictResponse는 충돌 응답을 생성합니다 (409)
+func ConflictResponse(c echo.Context, message string) error {
+	return ErrorResponse(c, http.StatusConflict, message)
+}
+
+// ForbiddenResponse는 권한 거부 응답을 생성합니다 (403)
+func ForbiddenResponse(c echo.Context, message string) error {
+	return ErrorResponse(c, http.StatusForbidden, message)
+}
+
+// TooManyRequestsResponse는 요청 제한 응답을 생성합니다 (429)
+func TooManyRequestsResponse(c echo.Context, message string) error {
+	return ErrorResponse(c, http.StatusTooManyRequests, message)
+}
+
+// ServiceUnavailableResponse는 서비스 사용 불가 응답을 생성합니다 (503)
+func ServiceUnavailableResponse(c echo.Context, message string) error {
+	return ErrorResponse(c, http.StatusServiceUnavailable, message)
+}
+
+// NoContentResponse는 내용 없음 응답을 생성합니다 (204)
+func NoContentResponse(c echo.Context) error {
+	return c.NoContent(http.StatusNoContent)
+}
+
+// AcceptedResponse는 수락됨 응답을 생성합니다 (202) - 비동기 작업용
+func AcceptedResponse(c echo.Context, message string, data interface{}) error {
+	return c.JSON(http.StatusAccepted, types.APIResponse{
+		Success: true,
+		Message: message,
+		Data:    data,
 	})
 }

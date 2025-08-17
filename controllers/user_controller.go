@@ -4,6 +4,7 @@ import (
 	"ssh-key-manager/helpers"
 	"ssh-key-manager/services"
 	"ssh-key-manager/types"
+	"ssh-key-manager/utils"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -51,7 +52,7 @@ func GetUserDetail(c echo.Context) error {
 	}
 
 	// 현재 로그인한 사용자 확인
-	currentUserID, err := userIDFromToken(c)
+	currentUserID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
@@ -85,7 +86,7 @@ func GetUserDetail(c echo.Context) error {
 // @Failure 401 {object} map[string]interface{}
 // @Router /users/me [get]
 func GetCurrentUser(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
@@ -111,7 +112,7 @@ func GetCurrentUser(c echo.Context) error {
 // @Failure 401 {object} map[string]interface{}
 // @Router /users/me [put]
 func UpdateUserProfile(c echo.Context) error {
-	userID, err := userIDFromToken(c)
+	userID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
@@ -132,7 +133,7 @@ func UpdateUserProfile(c echo.Context) error {
 // AdminRequired는 관리자 권한을 확인하는 미들웨어입니다.
 func AdminRequired(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		userID, err := userIDFromToken(c)
+		userID, err := utils.UserIDFromToken(c)
 		if err != nil {
 			return helpers.UnauthorizedResponse(c, "Invalid token")
 		}
@@ -161,7 +162,7 @@ func AdminRequired(next echo.HandlerFunc) echo.HandlerFunc {
 // @Failure 404 {object} map[string]interface{}
 // @Router /admin/users/{id}/role [put]
 func UpdateUserRole(c echo.Context) error {
-	adminUserID, err := userIDFromToken(c)
+	adminUserID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
@@ -234,7 +235,7 @@ func GetAllUsersAdmin(c echo.Context) error {
 // @Failure 404 {object} map[string]interface{}
 // @Router /admin/users/{id} [delete]
 func DeleteUser(c echo.Context) error {
-	adminUserID, err := userIDFromToken(c)
+	adminUserID, err := utils.UserIDFromToken(c)
 	if err != nil {
 		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
