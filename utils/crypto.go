@@ -7,9 +7,9 @@ import (
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -23,6 +23,12 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// JWTClaims는 JWT 클레임 구조체입니다.
+type JWTClaims struct {
+	UserID uint `json:"user_id"`
+	jwt.RegisteredClaims
+}
+
 // 인증 관련 함수들
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
@@ -34,17 +40,82 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
+// GenerateJWT는 사용자 ID로 JWT 토큰을 생성합니다.
 func GenerateJWT(userID uint) (string, error) {
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		return "", errors.New("JWT_SECRET not set in .env file")
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return "", fmt.Errorf("JWT_SECRET 환경변수가 설정되지 않았습니다")
 	}
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+
+	// 토큰 만료 시간: 24시간
+	expirationTime := time.Now().Add(24 * time.Hour)
+
+	// 클레임 생성
+	claims := &JWTClaims{
+		UserID: userID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "ssh-key-manager",
+			Subject:   fmt.Sprintf("user-%d", userID),
+		},
 	}
+
+	// 토큰 생성
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(jwtSecret))
+
+	// 서명
+	tokenString, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", fmt.Errorf("토큰 서명 실패: %w", err)
+	}
+
+	return tokenString, nil
+}
+
+// ValidateJWT는 JWT 토큰을 검증합니다.
+func ValidateJWT(tokenString string) (*JWTClaims, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return nil, fmt.Errorf("JWT_SECRET 환경변수가 설정되지 않았습니다")
+	}
+
+	// 토큰 파싱 및 검증
+	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		// 서명 방식 확인
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("토큰 파싱 실패: %w", err)
+	}
+
+	// 클레임 추출
+	claims, ok := token.Claims.(*JWTClaims)
+	if !ok || !token.Valid {
+		return nil, fmt.Errorf("유효하지 않은 토큰")
+	}
+
+	// 만료 시간 확인
+	if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
+		return nil, fmt.Errorf("토큰이 만료되었습니다")
+	}
+
+	return claims, nil
+}
+
+// RefreshJWT는 기존 토큰을 새로운 토큰으로 갱신합니다.
+func RefreshJWT(oldTokenString string) (string, error) {
+	claims, err := ValidateJWT(oldTokenString)
+	if err != nil {
+		return "", fmt.Errorf("기존 토큰 검증 실패: %w", err)
+	}
+
+	// 새로운 토큰 생성
+	return GenerateJWT(claims.UserID)
 }
 
 // SSH 키 생성 관련 함수들
@@ -359,4 +430,17 @@ func CheckPuTTYgenAvailable() bool {
 	cmd := exec.Command("puttygen", "--version")
 	err := cmd.Run()
 	return err == nil
+}
+
+func GenerateRandomPassword() string {
+	// 12자리 랜덤 비밀번호 생성
+	bytes := make([]byte, 9) // 12자 base64 = 9바이트
+	if _, err := rand.Read(bytes); err != nil {
+		log.Printf("경고: 비밀번호 생성 실패, 기본값 사용: %v", err)
+		return "admin123!" // 기본 비밀번호
+	}
+
+	// Base64 인코딩하고 특수문자 추가
+	password := base64.URLEncoding.EncodeToString(bytes)
+	return password + "!"
 }

@@ -11,37 +11,44 @@
 <div class="container">
     <h1>SSH Key Manager</h1>
 
-    <div id="error-display"></div>
-
+    <!-- 인증 섹션 -->
     <div id="auth-section">
+        <!-- 로그인 -->
         <div id="login-view">
             <div class="form-container">
-                <h2>Login</h2>
+                <h2>로그인</h2>
                 <form id="login-form">
-                    <input type="text" id="login-username" placeholder="Username" required>
-                    <input type="password" id="login-password" placeholder="Password" required>
-                    <button type="submit">Login</button>
+                    <input type="text" name="username" placeholder="사용자명" required>
+                    <input type="password" name="password" placeholder="비밀번호" required>
+                    <button type="submit">로그인</button>
                 </form>
-                <p class="toggle-link">계정이 없으신가요? <a href="#" id="show-register">가입하기</a></p>
+                <p class="toggle-link">
+                    계정이 없으신가요? <a href="#" id="show-register">가입하기</a>
+                </p>
             </div>
         </div>
 
+        <!-- 회원가입 -->
         <div id="register-view" class="hidden">
             <div class="form-container">
-                <h2>Register</h2>
+                <h2>회원가입</h2>
                 <form id="register-form">
-                    <input type="text" id="register-username" placeholder="New Username" required>
-                    <input type="password" id="register-password" placeholder="New Password" required>
-                    <button type="submit">Register</button>
+                    <input type="text" name="username" placeholder="사용자명" required minlength="3">
+                    <input type="password" name="password" placeholder="비밀번호" required minlength="4">
+                    <button type="submit">가입하기</button>
                 </form>
-                <p class="toggle-link">이미 계정이 있으신가요? <a href="#" id="show-login">로그인하기</a></p>
+                <p class="toggle-link">
+                    이미 계정이 있으신가요? <a href="#" id="show-login">로그인하기</a>
+                </p>
             </div>
         </div>
     </div>
 
+    <!-- 메인 섹션 -->
     <div id="key-section" class="hidden">
+        <!-- 헤더 -->
         <div class="header-section">
-            <button id="logout-btn">Logout</button>
+            <button id="logout-btn">로그아웃</button>
             <div class="nav-buttons">
                 <button id="nav-keys" class="nav-btn active">내 키 관리</button>
                 <button id="nav-users" class="nav-btn">사용자 목록</button>
@@ -49,68 +56,69 @@
             </div>
         </div>
 
-        <!-- 키 관리 섹션 -->
+        <!-- 키 관리 뷰 -->
         <div id="keys-view" class="view-section">
             <h2>SSH Key Management</h2>
-            <div id="key-controls">
-                <button id="create-btn">Create / Regenerate</button>
-                <button id="view-btn">View Key</button>
-                <button id="delete-btn" class="danger">Delete Key</button>
+            
+            <div class="key-controls">
+                <button data-action="key-create">키 생성/재생성</button>
+                <button data-action="key-view">키 보기</button>
+                <button data-action="key-delete" class="danger">키 삭제</button>
             </div>
 
-            <h3>API Result</h3>
-            <p id="key-info"></p>
+            <div id="key-info"></div>
+            
             <div id="key-display-area" class="hidden">
+                <!-- 공개키 -->
                 <div class="key-item">
-                    <div class="key-header">
-                        <h4>Public Key (.pub)</h4>
-                    </div>
-                    <div class="command-display" title="Creates a new id_rsa.pub file with the key.">
+                    <h4>공개키 (.pub)</h4>
+                    <div class="command-display">
                         <pre id="cmd-public"></pre>
-                        <button class="copy-cmd-btn" data-target-id="cmd-public">Copy Cmd</button>
+                        <button class="copy-btn" data-action="copy" data-target="cmd-public" data-type="명령어">복사</button>
                     </div>
-                    <div class="command-display" title="Appends the key to the authorized_keys file on a server.">
+                    <div class="command-display">
                         <pre id="cmd-authorized-keys"></pre>
-                        <button class="copy-cmd-btn" data-target-id="cmd-authorized-keys">Copy Cmd</button>
+                        <button class="copy-btn" data-action="copy" data-target="cmd-authorized-keys" data-type="명령어">복사</button>
                     </div>
-                    <div class="key-content-wrapper">
+                    <div class="key-content">
                         <pre id="key-public"></pre>
-                        <button class="copy-key-btn" data-target-id="key-public">Copy Key</button>
+                        <button class="copy-btn" data-action="copy" data-target="key-public" data-type="공개키">복사</button>
                     </div>
                 </div>
+
+                <!-- PEM 개인키 -->
                 <div class="key-item">
-                    <div class="key-header">
-                        <h4>Private Key (PEM Format)</h4>
-                    </div>
+                    <h4>개인키 (PEM)</h4>
                     <div class="command-display">
                         <pre id="cmd-pem"></pre>
-                        <button class="copy-cmd-btn" data-target-id="cmd-pem">Copy Cmd</button>
+                        <button class="copy-btn" data-action="copy" data-target="cmd-pem" data-type="명령어">복사</button>
                     </div>
-                    <div class="key-content-wrapper">
+                    <div class="key-content">
                         <pre id="key-pem"></pre>
-                        <button class="copy-key-btn" data-target-id="key-pem">Copy Key</button>
+                        <button class="copy-btn" data-action="copy" data-target="key-pem" data-type="PEM 키">복사</button>
                     </div>
                 </div>
+
+                <!-- PPK 개인키 -->
                 <div class="key-item">
-                    <div class="key-header">
-                        <h4>Private Key (PPK Format)</h4>
-                    </div>
+                    <h4>개인키 (PPK)</h4>
                     <div class="command-display">
                         <pre id="cmd-ppk"></pre>
-                        <button class="copy-cmd-btn" data-target-id="cmd-ppk">Copy Cmd</button>
+                        <button class="copy-btn" data-action="copy" data-target="cmd-ppk" data-type="명령어">복사</button>
                     </div>
-                    <div class="key-content-wrapper">
+                    <div class="key-content">
                         <pre id="key-ppk"></pre>
-                        <button class="copy-key-btn" data-target-id="key-ppk">Copy Key</button>
+                        <button class="copy-btn" data-action="copy" data-target="key-ppk" data-type="PPK 키">복사</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 사용자 목록 섹션 -->
+        <!-- 사용자 목록 뷰 -->
         <div id="users-view" class="view-section hidden">
             <h2>사용자 목록</h2>
-            <div id="user-stats" class="stats-section">
+            
+            <div class="stats-section">
                 <div class="stat-item">
                     <span class="stat-label">전체 사용자:</span>
                     <span id="total-users" class="stat-value">-</span>
@@ -120,55 +128,52 @@
                     <span id="users-with-keys" class="stat-value">-</span>
                 </div>
             </div>
+            
             <div id="users-list" class="users-list">
-                <!-- 사용자 목록이 동적으로 여기에 추가됩니다 -->
+                <!-- 동적 로드 -->
             </div>
         </div>
 
-        <!-- 프로필 섹션 -->
+        <!-- 프로필 뷰 -->
         <div id="profile-view" class="view-section hidden">
             <h2>프로필 관리</h2>
+            
             <div class="form-container">
                 <form id="profile-form">
                     <div class="form-group">
-                        <label for="profile-username">사용자명:</label>
-                        <input type="text" id="profile-username" placeholder="새 사용자명">
+                        <label>사용자명:</label>
+                        <input type="text" name="username" placeholder="새 사용자명 (선택사항)">
                     </div>
                     <div class="form-group">
-                        <label for="profile-password">새 비밀번호:</label>
-                        <input type="password" id="profile-password" placeholder="새 비밀번호 (선택사항)">
+                        <label>새 비밀번호:</label>
+                        <input type="password" name="password" placeholder="새 비밀번호 (선택사항)">
                     </div>
                     <button type="submit">프로필 업데이트</button>
                 </form>
             </div>
-            <div id="current-user-info" class="user-info">
-                <!-- 현재 사용자 정보가 여기에 표시됩니다 -->
+            
+            <div id="current-user-info">
+                <!-- 동적 로드 -->
             </div>
         </div>
     </div>
 </div>
 
-<!-- 사용자 상세 모달 -->
+<!-- 모달 -->
 <div id="user-detail-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 class="modal-title">사용자 상세 정보</h3>
-            <span class="close">&times;</span>
+            <h3>사용자 상세 정보</h3>
+            <button class="close">&times;</button>
         </div>
         <div id="user-detail-content">
-            <!-- 사용자 상세 정보가 여기에 표시됩니다 -->
+            <!-- 동적 로드 -->
         </div>
     </div>
 </div>
 
-<script src="js/utils.js"></script>
-<script src="js/auth-manager.js"></script>
-<script src="js/view-manager.js"></script>
-<script src="js/key-manager.js"></script>
-<script src="js/user-manager.js"></script>
-<script src="js/profile-manager.js"></script>
-<script src="js/modal-manager.js"></script>
-<script src="js/copy-manager.js"></script>
-<script src="script.js"></script>
+<!-- 통합 스크립트 -->
+<script src="ssh-manager.js"></script>
+
 </body>
 </html>
