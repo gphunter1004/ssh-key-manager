@@ -1,9 +1,11 @@
 package router
 
 import (
+	"net/http"
 	"ssh-key-manager/internal/config"
 	"ssh-key-manager/internal/handler"
 	"ssh-key-manager/internal/middleware"
+	"ssh-key-manager/internal/model"
 
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -17,7 +19,14 @@ func Setup(e *echo.Echo, cfg *config.Config) {
 		ContextKey:  "user",
 		TokenLookup: "header:Authorization:Bearer ",
 		ErrorHandler: func(c echo.Context, err error) error {
-			return handler.ErrorResponse(c, 401, "invalid or expired jwt")
+			return c.JSON(http.StatusUnauthorized, model.APIResponse{
+				Success: false,
+				Error: &model.APIError{
+					Code:    model.ErrInvalidJWT,
+					Message: "유효하지 않거나 만료된 JWT 토큰입니다",
+					Details: err.Error(),
+				},
+			})
 		},
 	}
 
@@ -75,6 +84,8 @@ func setupAuthenticatedRoutes(api *echo.Group, jwtConfig echojwt.Config) {
 	departments.GET("", handler.GetDepartments)
 	departments.GET("/tree", handler.GetDepartmentTree)
 	departments.GET("/:id", handler.GetDepartment)
+	
+	// 서버 관리
 	servers := auth.Group("/servers")
 	servers.POST("", handler.CreateServer)
 	servers.GET("", handler.GetServers)
@@ -96,6 +107,8 @@ func setupAdminRoutes(api *echo.Group, jwtConfig echojwt.Config) {
 	admin.GET("/users", handler.GetAllUsers)
 	admin.GET("/users/:id", handler.GetUserDetail)
 	admin.PUT("/users/:id/role", handler.UpdateUserRole)
+	admin.DELETE("/users/:id", handler.DeleteUser)
+	
 	// 부서 관리 (관리자용)
 	admin.POST("/departments", handler.CreateDepartment)
 	admin.PUT("/departments/:id", handler.UpdateDepartment)
