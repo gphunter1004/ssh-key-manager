@@ -4,10 +4,11 @@ import (
 	"log"
 	"ssh-key-manager/internal/config"
 	"ssh-key-manager/internal/database"
+	"ssh-key-manager/internal/middleware"
 	"ssh-key-manager/internal/router"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
@@ -29,18 +30,22 @@ func main() {
 	// 3. Echo 인스턴스 생성
 	e := echo.New()
 
-	// 4. 미들웨어 설정
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-	e.Use(middleware.CORS())
+	// 4. 글로벌 에러 핸들러 설정 (가장 먼저!)
+	e.HTTPErrorHandler = middleware.CustomHTTPErrorHandler
 
-	// 5. 정적 파일 서빙
+	// 5. 미들웨어 설정
+	e.Use(echomiddleware.Logger())
+	e.Use(echomiddleware.Recover()) // 기본 recover 대신 사용자 정의 사용 권장
+	e.Use(middleware.RecoverMiddleware()) // panic 복구 미들웨어
+	e.Use(echomiddleware.CORS())
+
+	// 6. 정적 파일 서빙
 	e.Static("/", "web/static")
 
-	// 6. 라우터 설정
+	// 7. 라우터 설정
 	router.Setup(e, cfg)
 
-	// 7. 서버 시작
+	// 8. 서버 시작
 	serverAddr := ":" + cfg.ServerPort
 	log.Printf("🌐 서버 시작: http://localhost%s", serverAddr)
 
