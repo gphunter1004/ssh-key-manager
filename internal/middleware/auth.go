@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"net/http"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/util"
 	"strconv"
@@ -16,25 +17,34 @@ func AdminRequired(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID, err := UserIDFromToken(c)
 		if err != nil {
-			return c.JSON(401, map[string]interface{}{
-				"success": false,
-				"error":   "Invalid token",
+			return c.JSON(http.StatusUnauthorized, model.APIResponse{
+				Success: false,
+				Error: &model.APIError{
+					Code:    model.ErrInvalidToken,
+					Message: "유효하지 않은 토큰입니다",
+				},
 			})
 		}
 
 		// 사용자 권한 확인
 		var user model.User
 		if err := model.DB.Select("role").First(&user, userID).Error; err != nil {
-			return c.JSON(403, map[string]interface{}{
-				"success": false,
-				"error":   "사용자를 찾을 수 없습니다",
+			return c.JSON(http.StatusForbidden, model.APIResponse{
+				Success: false,
+				Error: &model.APIError{
+					Code:    model.ErrUserNotFound,
+					Message: "사용자를 찾을 수 없습니다",
+				},
 			})
 		}
 
 		if user.Role != model.RoleAdmin {
-			return c.JSON(403, map[string]interface{}{
-				"success": false,
-				"error":   "관리자 권한이 필요합니다",
+			return c.JSON(http.StatusForbidden, model.APIResponse{
+				Success: false,
+				Error: &model.APIError{
+					Code:    model.ErrPermissionDenied,
+					Message: "관리자 권한이 필요합니다",
+				},
 			})
 		}
 
