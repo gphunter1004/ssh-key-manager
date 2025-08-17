@@ -2,6 +2,7 @@ package handler
 
 import (
 	"ssh-key-manager/internal/service"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -30,6 +31,31 @@ func GetDepartmentTree(c echo.Context) error {
 
 // GetDepartment는 특정 부서의 상세 정보를 조회합니다.
 func GetDepartment(c echo.Context) error {
-	// TODO: URL 파라미터에서 부서 ID 추출 후 구현
-	return InternalServerErrorResponse(c, "아직 구현되지 않았습니다")
+	// URL 파라미터에서 부서 ID 추출
+	deptIDParam := c.Param("id")
+	deptID, err := strconv.ParseUint(deptIDParam, 10, 32)
+	if err != nil {
+		return BadRequestResponse(c, "유효하지 않은 부서 ID입니다")
+	}
+
+	// 부서 상세 정보 조회
+	department, err := service.GetDepartmentByID(uint(deptID))
+	if err != nil {
+		return NotFoundResponse(c, err.Error())
+	}
+
+	// 부서 사용자 수 조회
+	users, err := service.GetDepartmentUsers(uint(deptID))
+	if err != nil {
+		return InternalServerErrorResponse(c, "부서 사용자 조회 실패")
+	}
+
+	// 응답 데이터 구성
+	responseData := map[string]interface{}{
+		"department": department,
+		"user_count": len(users),
+		"users":      users,
+	}
+
+	return SuccessResponse(c, responseData)
 }
