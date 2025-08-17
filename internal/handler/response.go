@@ -33,11 +33,14 @@ func CreatedResponse(c echo.Context, message string, data interface{}) error {
 	})
 }
 
-// ErrorResponse는 에러 응답을 생성합니다.
+// ErrorResponse는 에러 응답을 생성합니다. (호환성을 위해 유지)
 func ErrorResponse(c echo.Context, statusCode int, message string) error {
 	return c.JSON(statusCode, model.APIResponse{
 		Success: false,
-		Error:   message,
+		Error: &model.APIError{
+			Code:    model.ErrValidationFailed,
+			Message: message,
+		},
 	})
 }
 
