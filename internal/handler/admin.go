@@ -10,6 +10,22 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// GetAllUsers는 모든 사용자 목록을 반환합니다 (관리자용).
+func GetAllUsers(c echo.Context) error {
+	adminUserID, err := middleware.UserIDFromToken(c)
+	if err != nil {
+		return UnauthorizedResponse(c, "Invalid token")
+	}
+
+	users, err := service.GetAllUsers()
+	if err != nil {
+		log.Printf("❌ 사용자 목록 조회 실패 (관리자 ID: %d): %v", adminUserID, err)
+		return InternalServerErrorResponse(c, err.Error())
+	}
+
+	return SuccessResponse(c, users)
+}
+
 // GetUserDetail는 특정 사용자의 상세 정보를 반환합니다 (관리자용).
 func GetUserDetail(c echo.Context) error {
 	adminUserID, err := middleware.UserIDFromToken(c)
