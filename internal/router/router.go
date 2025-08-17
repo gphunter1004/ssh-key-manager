@@ -70,7 +70,11 @@ func setupAuthenticatedRoutes(api *echo.Group, jwtConfig echojwt.Config) {
 	users.GET("/me", handler.GetCurrentUser)
 	users.PUT("/me", handler.UpdateUserProfile)
 
-	// 서버 관리 (아직 구현되지 않은 핸들러들)
+	// 부서 관리 (기본 조회는 인증된 사용자도 가능)
+	departments := auth.Group("/departments")
+	departments.GET("", handler.GetDepartments)
+	departments.GET("/tree", handler.GetDepartmentTree)
+	departments.GET("/:id", handler.GetDepartment)
 	servers := auth.Group("/servers")
 	servers.POST("", handler.CreateServer)
 	servers.GET("", handler.GetServers)
@@ -92,5 +96,9 @@ func setupAdminRoutes(api *echo.Group, jwtConfig echojwt.Config) {
 	admin.GET("/users", handler.GetAllUsers)
 	admin.GET("/users/:id", handler.GetUserDetail)
 	admin.PUT("/users/:id/role", handler.UpdateUserRole)
-	admin.DELETE("/users/:id", handler.DeleteUser)
+	// 부서 관리 (관리자용)
+	admin.POST("/departments", handler.CreateDepartment)
+	admin.PUT("/departments/:id", handler.UpdateDepartment)
+	admin.DELETE("/departments/:id", handler.DeleteDepartment)
+	admin.GET("/departments/:id/users", handler.GetDepartmentUsers)
 }
