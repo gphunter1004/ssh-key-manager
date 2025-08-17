@@ -35,8 +35,7 @@ func main() {
 
 	// 5. 미들웨어 설정
 	e.Use(echomiddleware.Logger())
-	e.Use(echomiddleware.Recover()) // 기본 recover 대신 사용자 정의 사용 권장
-	e.Use(middleware.RecoverMiddleware()) // panic 복구 미들웨어
+	e.Use(middleware.RecoverMiddleware()) // 사용자 정의 panic 복구
 	e.Use(echomiddleware.CORS())
 
 	// 6. 정적 파일 서빙
