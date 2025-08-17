@@ -129,32 +129,6 @@ func UpdateUserProfile(c echo.Context) error {
 	return helpers.SuccessWithMessageResponse(c, "프로필이 업데이트되었습니다", updatedUser)
 }
 
-// GetUserStats godoc
-// @Summary Get user statistics
-// @Description Get overall user statistics including SSH key coverage
-// @Tags users
-// @Accept  json
-// @Produce  json
-// @Security BearerAuth
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /users/stats [get]
-func GetUserStats(c echo.Context) error {
-	// 권한 확인 (관리자 전용 기능으로 확장 가능)
-	_, err := userIDFromToken(c)
-	if err != nil {
-		return helpers.UnauthorizedResponse(c, "Invalid token")
-	}
-
-	stats, err := services.GetUserStats()
-	if err != nil {
-		return helpers.InternalServerErrorResponse(c, err.Error())
-	}
-
-	return helpers.SuccessResponse(c, stats)
-}
-
 // AdminRequired는 관리자 권한을 확인하는 미들웨어입니다.
 func AdminRequired(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -219,26 +193,6 @@ func UpdateUserRole(c echo.Context) error {
 	return helpers.SuccessWithMessageResponse(c, "사용자 권한이 변경되었습니다", userDetail)
 }
 
-// GetAdminStats godoc
-// @Summary Get admin statistics
-// @Description Get comprehensive system statistics (Admin only)
-// @Tags admin
-// @Accept  json
-// @Produce  json
-// @Security BearerAuth
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 403 {object} map[string]interface{}
-// @Router /admin/stats [get]
-func GetAdminStats(c echo.Context) error {
-	stats, err := services.GetAdminStats()
-	if err != nil {
-		return helpers.InternalServerErrorResponse(c, err.Error())
-	}
-
-	return helpers.SuccessResponse(c, stats)
-}
-
 // GetAllUsersAdmin godoc
 // @Summary Get all users with full details (Admin only)
 // @Description Get all users including role information - admin version with more details
@@ -260,11 +214,6 @@ func GetAllUsersAdmin(c echo.Context) error {
 	responseData := map[string]interface{}{
 		"users": users,
 		"count": len(users),
-		"summary": map[string]interface{}{
-			"total":  len(users),
-			"admins": countUsersByRole(users, "admin"),
-			"users":  countUsersByRole(users, "user"),
-		},
 	}
 
 	return helpers.SuccessResponse(c, responseData)
@@ -308,15 +257,4 @@ func DeleteUser(c echo.Context) error {
 	}
 
 	return helpers.SuccessWithMessageResponse(c, "사용자가 삭제되었습니다", nil)
-}
-
-// countUsersByRole은 특정 권한을 가진 사용자 수를 계산합니다.
-func countUsersByRole(users []types.UserInfo, role string) int {
-	count := 0
-	for _, user := range users {
-		if user.Role == role {
-			count++
-		}
-	}
-	return count
 }

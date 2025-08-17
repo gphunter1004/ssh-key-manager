@@ -1,5 +1,3 @@
-// services/user_service.go 수정 - Role 필드가 제대로 조회되도록 수정
-
 package services
 
 import (
@@ -203,36 +201,6 @@ func generateSSHKeyFingerprint(publicKey string) (string, error) {
 	return fingerprint, nil
 }
 
-// GetUserStats는 사용자 통계 정보를 반환합니다.
-func GetUserStats() (*types.UserStats, error) {
-	log.Printf("📊 사용자 통계 조회 중...")
-
-	var totalUsers int64
-	var usersWithKeys int64
-
-	// 전체 사용자 수
-	if err := models.DB.Model(&models.User{}).Count(&totalUsers).Error; err != nil {
-		return nil, err
-	}
-
-	// SSH 키를 가진 사용자 수
-	if err := models.DB.Model(&models.User{}).
-		Joins("JOIN ssh_keys ON users.id = ssh_keys.user_id").
-		Count(&usersWithKeys).Error; err != nil {
-		return nil, err
-	}
-
-	stats := &types.UserStats{
-		TotalUsers:         totalUsers,
-		UsersWithKeys:      usersWithKeys,
-		UsersWithoutKeys:   totalUsers - usersWithKeys,
-		KeyCoveragePercent: float64(usersWithKeys) / float64(totalUsers) * 100,
-	}
-
-	log.Printf("✅ 사용자 통계 조회 완료 (전체: %d명, 키 보유: %d명)", totalUsers, usersWithKeys)
-	return stats, nil
-}
-
 // CreateAdminUser는 초기 관리자 계정을 생성합니다.
 func CreateAdminUser(username, password string) error {
 	log.Printf("👑 초기 관리자 계정 생성 시도: %s", username)
@@ -353,40 +321,6 @@ func GetUserRole(userID uint) (models.UserRole, error) {
 		return "", err
 	}
 	return user.Role, nil
-}
-
-// GetAdminStats는 관리자용 통계 정보를 반환합니다.
-func GetAdminStats() (*types.AdminStats, error) {
-	log.Printf("📊 관리자 통계 조회 중...")
-
-	var totalUsers, adminUsers, regularUsers int64
-	var totalServers, totalSSHKeys, totalDeployments int64
-
-	// 사용자 통계
-	models.DB.Model(&models.User{}).Count(&totalUsers)
-	models.DB.Model(&models.User{}).Where("role = ?", models.RoleAdmin).Count(&adminUsers)
-	models.DB.Model(&models.User{}).Where("role = ?", models.RoleUser).Count(&regularUsers)
-
-	// 서버 통계
-	models.DB.Model(&models.Server{}).Count(&totalServers)
-
-	// SSH 키 통계
-	models.DB.Model(&models.SSHKey{}).Count(&totalSSHKeys)
-
-	// 배포 통계
-	models.DB.Model(&models.ServerKeyDeployment{}).Count(&totalDeployments)
-
-	stats := &types.AdminStats{
-		TotalUsers:       totalUsers,
-		AdminUsers:       adminUsers,
-		RegularUsers:     regularUsers,
-		TotalServers:     totalServers,
-		TotalSSHKeys:     totalSSHKeys,
-		TotalDeployments: totalDeployments,
-	}
-
-	log.Printf("✅ 관리자 통계 조회 완료")
-	return stats, nil
 }
 
 // DeleteUser는 사용자를 삭제합니다 (관리자만 가능).

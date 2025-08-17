@@ -3,7 +3,6 @@ package controllers
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"ssh-key-manager/helpers"
 	"ssh-key-manager/services"
 	"strconv"
@@ -68,7 +67,7 @@ func userIDFromToken(c echo.Context) (uint, error) {
 	return userID, nil
 }
 
-// ValidateToken은 토큰의 유효성을 검사합니다 (새로운 엔드포인트)
+// ValidateToken은 토큰의 유효성을 검사합니다.
 func ValidateToken(c echo.Context) error {
 	userID, err := userIDFromToken(c)
 	if err != nil {
@@ -94,46 +93,52 @@ func ValidateToken(c echo.Context) error {
 	return helpers.SuccessResponse(c, responseData)
 }
 
-// CreateKey creates or regenerates an SSH key pair for the authenticated user.
+// CreateKey는 SSH 키 쌍을 생성하거나 재생성합니다.
 func CreateKey(c echo.Context) error {
 	userID, err := userIDFromToken(c)
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid token"})
+		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
 	key, err := services.GenerateSSHKeyPair(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to generate key pair"})
+		log.Printf("❌ SSH 키 생성 실패: %v", err)
+		return helpers.InternalServerErrorResponse(c, "Failed to generate key pair")
 	}
 
-	return c.JSON(http.StatusOK, key)
+	log.Printf("✅ SSH 키 생성 성공 (사용자 ID: %d)", userID)
+	return helpers.SuccessWithMessageResponse(c, "SSH 키가 성공적으로 생성되었습니다", key)
 }
 
-// GetKey retrieves the SSH key pair for the authenticated user.
+// GetKey는 사용자의 SSH 키 쌍을 조회합니다.
 func GetKey(c echo.Context) error {
 	userID, err := userIDFromToken(c)
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid token"})
+		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
 	key, err := services.GetKeyByUserID(userID)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+		log.Printf("❌ SSH 키 조회 실패 (사용자 ID: %d): %v", userID, err)
+		return helpers.NotFoundResponse(c, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, key)
+	log.Printf("✅ SSH 키 조회 성공 (사용자 ID: %d)", userID)
+	return helpers.SuccessResponse(c, key)
 }
 
-// DeleteKey deletes the SSH key pair for the authenticated user.
+// DeleteKey는 사용자의 SSH 키 쌍을 삭제합니다.
 func DeleteKey(c echo.Context) error {
 	userID, err := userIDFromToken(c)
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid token"})
+		return helpers.UnauthorizedResponse(c, "Invalid token")
 	}
 
 	if err := services.DeleteKeyByUserID(userID); err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+		log.Printf("❌ SSH 키 삭제 실패 (사용자 ID: %d): %v", userID, err)
+		return helpers.NotFoundResponse(c, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "Key deleted successfully"})
+	log.Printf("✅ SSH 키 삭제 성공 (사용자 ID: %d)", userID)
+	return helpers.SuccessWithMessageResponse(c, "SSH 키가 성공적으로 삭제되었습니다", nil)
 }
