@@ -75,3 +75,13 @@ type DepartmentUpdateRequest struct {
 	ParentID    *uint  `json:"parent_id,omitempty"`
 	IsActive    *bool  `json:"is_active,omitempty"`
 }
+
+// ========== 표준 응답 구조체 ==========
+
+// APIResponse는 표준 API 응답 구조체입니다.
+type APIResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
+}
