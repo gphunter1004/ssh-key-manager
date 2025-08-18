@@ -11,7 +11,7 @@ import (
 func GetDepartments(c echo.Context) error {
 	includeInactive := c.QueryParam("include_inactive") == "true"
 
-	departments, err := service.GetAllDepartments(includeInactive)
+	departments, err := service.C().Department.GetAllDepartments(includeInactive)
 	if err != nil {
 		return InternalServerErrorResponse(c, err.Error())
 	}
@@ -21,7 +21,7 @@ func GetDepartments(c echo.Context) error {
 
 // GetDepartmentTree는 부서 트리 구조를 조회합니다.
 func GetDepartmentTree(c echo.Context) error {
-	tree, err := service.GetDepartmentTree()
+	tree, err := service.C().Department.GetDepartmentTree()
 	if err != nil {
 		return InternalServerErrorResponse(c, err.Error())
 	}
@@ -39,13 +39,13 @@ func GetDepartment(c echo.Context) error {
 	}
 
 	// 부서 상세 정보 조회
-	department, err := service.GetDepartmentByID(uint(deptID))
+	department, err := service.C().Department.GetDepartmentByID(uint(deptID))
 	if err != nil {
 		return NotFoundResponse(c, err.Error())
 	}
 
 	// 부서 사용자 수 조회
-	users, err := service.GetDepartmentUsers(uint(deptID))
+	users, err := service.C().Department.GetDepartmentUsers(uint(deptID))
 	if err != nil {
 		return InternalServerErrorResponse(c, "부서 사용자 조회 실패")
 	}

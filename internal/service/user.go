@@ -2,6 +2,7 @@ package service
 
 import (
 	"log"
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/repository"
 	"ssh-key-manager/internal/util"
@@ -20,8 +21,33 @@ func NewUserService(repos *repository.Repositories) *UserService {
 	return &UserService{repos: repos}
 }
 
+// GetUserByID ID로 사용자를 조회합니다.
+func (us *UserService) GetUserByID(userID uint) (*model.User, error) {
+	if userID == 0 {
+		return nil, model.NewBusinessError(
+			model.ErrInvalidInput,
+			"유효하지 않은 사용자 ID입니다",
+		)
+	}
+
+	user, err := us.repos.User.FindByID(userID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, model.NewUserNotFoundError()
+		}
+		return nil, model.NewBusinessError(
+			model.ErrDatabaseError,
+			"사용자 조회 중 오류가 발생했습니다",
+		)
+	}
+
+	// 민감한 정보 제거
+	user.Password = ""
+	return user, nil
+}
+
 // UpdateUserProfile 사용자 프로필을 업데이트합니다.
-func (us *UserService) UpdateUserProfile(userID uint, req model.UserUpdateRequest) (*model.User, error) {
+func (us *UserService) UpdateUserProfile(userID uint, req dto.UserUpdateRequest) (*model.User, error) {
 	log.Printf("✏️ 사용자 프로필 업데이트 (ID: %d)", userID)
 
 	// 사용자 존재 확인

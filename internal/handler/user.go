@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/middleware"
-	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 
 	"github.com/labstack/echo/v4"
@@ -15,21 +15,21 @@ func GetCurrentUser(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	user, err := service.GetUserByID(userID)
+	user, err := service.C().User.GetUserByID(userID)
 	if err != nil {
 		return NotFoundResponse(c, err.Error())
 	}
 
 	// SSH 키 존재 여부 확인
-	hasSSHKey := service.HasUserSSHKey(userID)
+	hasSSHKey := service.C().Key.HasUserSSHKey(userID)
 
 	responseData := map[string]interface{}{
-		"id":         user.ID,
-		"username":   user.Username,
-		"role":       user.Role,
+		"id":          user.ID,
+		"username":    user.Username,
+		"role":        user.Role,
 		"has_ssh_key": hasSSHKey,
-		"created_at": user.CreatedAt,
-		"updated_at": user.UpdatedAt,
+		"created_at":  user.CreatedAt,
+		"updated_at":  user.UpdatedAt,
 	}
 
 	return SuccessResponse(c, responseData)
@@ -42,12 +42,12 @@ func UpdateUserProfile(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	var req model.UserUpdateRequest
+	var req dto.UserUpdateRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
-	user, err := service.UpdateUserProfile(userID, req)
+	user, err := service.C().User.UpdateUserProfile(userID, req)
 	if err != nil {
 		return BadRequestResponse(c, err.Error())
 	}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"log"
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/repository"
 	"strings"
@@ -20,7 +21,7 @@ func NewDepartmentService(repos *repository.Repositories) *DepartmentService {
 }
 
 // CreateDepartment 새로운 부서를 생성합니다.
-func (ds *DepartmentService) CreateDepartment(req model.DepartmentCreateRequest) (*model.Department, error) {
+func (ds *DepartmentService) CreateDepartment(req dto.DepartmentCreateRequest) (*model.Department, error) {
 	log.Printf("🏢 새 부서 생성 시도: %s (%s)", req.Name, req.Code)
 
 	// 입력값 검증
@@ -159,7 +160,7 @@ func (ds *DepartmentService) GetDepartmentByID(deptID uint) (*model.Department, 
 }
 
 // UpdateDepartment 부서 정보를 수정합니다.
-func (ds *DepartmentService) UpdateDepartment(deptID uint, req model.DepartmentUpdateRequest) (*model.Department, error) {
+func (ds *DepartmentService) UpdateDepartment(deptID uint, req dto.DepartmentUpdateRequest) (*model.Department, error) {
 	log.Printf("✏️ 부서 정보 수정: ID %d", deptID)
 
 	department, err := ds.repos.Department.FindByID(deptID)
@@ -362,7 +363,7 @@ func (ds *DepartmentService) GetDepartmentUsers(deptID uint) ([]model.User, erro
 // ========== 내부 헬퍼 함수들 ==========
 
 // validateDepartmentCreateRequest 부서 생성 요청을 검증합니다.
-func (ds *DepartmentService) validateDepartmentCreateRequest(req model.DepartmentCreateRequest) error {
+func (ds *DepartmentService) validateDepartmentCreateRequest(req dto.DepartmentCreateRequest) error {
 	if strings.TrimSpace(req.Code) == "" {
 		return model.NewBusinessError(
 			model.ErrRequiredField,

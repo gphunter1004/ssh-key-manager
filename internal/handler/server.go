@@ -2,8 +2,8 @@ package handler
 
 import (
 	"log"
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/middleware"
-	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 	"strconv"
 
@@ -17,12 +17,12 @@ func CreateServer(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	var req model.ServerCreateRequest
+	var req dto.ServerCreateRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
-	server, err := service.CreateServer(userID, req)
+	server, err := service.C().Server.CreateServer(userID, req)
 	if err != nil {
 		log.Printf("❌ 서버 등록 실패 (사용자 ID: %d): %v", userID, err)
 		return BadRequestResponse(c, err.Error())
@@ -39,7 +39,7 @@ func GetServers(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	servers, err := service.GetUserServers(userID)
+	servers, err := service.C().Server.GetUserServers(userID)
 	if err != nil {
 		log.Printf("❌ 서버 목록 조회 실패 (사용자 ID: %d): %v", userID, err)
 		return InternalServerErrorResponse(c, err.Error())
@@ -61,7 +61,7 @@ func GetServer(c echo.Context) error {
 		return BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
 	}
 
-	server, err := service.GetServerByID(userID, uint(serverID))
+	server, err := service.C().Server.GetServerByID(userID, uint(serverID))
 	if err != nil {
 		log.Printf("❌ 서버 조회 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
 		return NotFoundResponse(c, err.Error())
@@ -83,12 +83,12 @@ func UpdateServer(c echo.Context) error {
 		return BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
 	}
 
-	var req model.ServerUpdateRequest
+	var req dto.ServerUpdateRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
-	server, err := service.UpdateServer(userID, uint(serverID), req)
+	server, err := service.C().Server.UpdateServer(userID, uint(serverID), req)
 	if err != nil {
 		log.Printf("❌ 서버 수정 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
 		return BadRequestResponse(c, err.Error())
@@ -110,7 +110,7 @@ func DeleteServer(c echo.Context) error {
 		return BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
 	}
 
-	err = service.DeleteServer(userID, uint(serverID))
+	err = service.C().Server.DeleteServer(userID, uint(serverID))
 	if err != nil {
 		log.Printf("❌ 서버 삭제 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
 		return NotFoundResponse(c, err.Error())
@@ -133,7 +133,7 @@ func TestServerConnection(c echo.Context) error {
 		return BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
 	}
 
-	result, err := service.TestServerConnection(userID, uint(serverID))
+	result, err := service.C().Server.TestServerConnection(userID, uint(serverID))
 	if err != nil {
 		log.Printf("❌ 서버 연결 테스트 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
 		return BadRequestResponse(c, err.Error())
@@ -149,7 +149,7 @@ func DeployKeyToServers(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	var req model.KeyDeploymentRequest
+	var req dto.KeyDeploymentRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
@@ -158,7 +158,7 @@ func DeployKeyToServers(c echo.Context) error {
 		return BadRequestResponse(c, "배포할 서버를 선택해주세요")
 	}
 
-	results, err := service.DeployKeyToServers(userID, req)
+	results, err := service.C().Server.DeployKeyToServers(userID, req)
 	if err != nil {
 		log.Printf("❌ 키 배포 실패 (사용자 ID: %d): %v", userID, err)
 		return BadRequestResponse(c, err.Error())
@@ -197,7 +197,7 @@ func GetDeploymentHistory(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	history, err := service.GetDeploymentHistory(userID)
+	history, err := service.C().Server.GetDeploymentHistory(userID)
 	if err != nil {
 		log.Printf("❌ 배포 기록 조회 실패 (사용자 ID: %d): %v", userID, err)
 		return InternalServerErrorResponse(c, err.Error())

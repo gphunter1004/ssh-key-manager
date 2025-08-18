@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/model"
 
 	"github.com/labstack/echo/v4"
@@ -18,7 +19,7 @@ func StandardErrorResponse(c echo.Context, statusCode int, errorCode model.Error
 		apiError.Details = details[0]
 	}
 
-	return c.JSON(statusCode, model.APIResponse{
+	return c.JSON(statusCode, dto.APIResponse{
 		Success: false,
 		Error:   apiError,
 	})

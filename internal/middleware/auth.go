@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/model"
 	"strconv"
 	"time"
@@ -19,7 +20,7 @@ func AdminRequired(next echo.HandlerFunc) echo.HandlerFunc {
 		userID, err := UserIDFromToken(c)
 		if err != nil {
 			log.Printf("❌ 토큰에서 사용자 ID 추출 실패: %v", err)
-			return c.JSON(http.StatusUnauthorized, model.APIResponse{
+			return c.JSON(http.StatusUnauthorized, dto.APIResponse{
 				Success: false,
 				Error: &model.APIError{
 					Code:    model.ErrInvalidToken,
@@ -32,7 +33,7 @@ func AdminRequired(next echo.HandlerFunc) echo.HandlerFunc {
 		db, err := model.GetDB()
 		if err != nil {
 			log.Printf("❌ 데이터베이스 접근 실패: %v", err)
-			return c.JSON(http.StatusInternalServerError, model.APIResponse{
+			return c.JSON(http.StatusInternalServerError, dto.APIResponse{
 				Success: false,
 				Error: &model.APIError{
 					Code:    model.ErrDatabaseError,
@@ -45,7 +46,7 @@ func AdminRequired(next echo.HandlerFunc) echo.HandlerFunc {
 		var user model.User
 		if err := db.Select("role").First(&user, userID).Error; err != nil {
 			log.Printf("❌ 사용자 조회 실패 (ID: %d): %v", userID, err)
-			return c.JSON(http.StatusForbidden, model.APIResponse{
+			return c.JSON(http.StatusForbidden, dto.APIResponse{
 				Success: false,
 				Error: &model.APIError{
 					Code:    model.ErrUserNotFound,
@@ -56,7 +57,7 @@ func AdminRequired(next echo.HandlerFunc) echo.HandlerFunc {
 
 		if user.Role != model.RoleAdmin {
 			log.Printf("❌ 관리자 권한 없음 (사용자 ID: %d, 권한: %s)", userID, user.Role)
-			return c.JSON(http.StatusForbidden, model.APIResponse{
+			return c.JSON(http.StatusForbidden, dto.APIResponse{
 				Success: false,
 				Error: &model.APIError{
 					Code:    model.ErrPermissionDenied,

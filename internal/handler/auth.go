@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/middleware"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
@@ -10,13 +11,12 @@ import (
 
 // Register는 새로운 사용자를 등록합니다.
 func Register(c echo.Context) error {
-	var req model.AuthRequest
+	var req dto.AuthRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
-	authService := service.GetAuthService()
-	user, err := authService.RegisterUser(req.Username, req.Password)
+	user, err := service.C().Auth.RegisterUser(req.Username, req.Password)
 	if err != nil {
 		if be, ok := err.(*model.BusinessError); ok {
 			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
@@ -34,13 +34,12 @@ func Register(c echo.Context) error {
 
 // Login은 사용자를 인증하고 JWT를 반환합니다.
 func Login(c echo.Context) error {
-	var req model.AuthRequest
+	var req dto.AuthRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
-	authService := service.GetAuthService()
-	token, user, err := authService.AuthenticateUser(req.Username, req.Password)
+	token, user, err := service.C().Auth.AuthenticateUser(req.Username, req.Password)
 	if err != nil {
 		if be, ok := err.(*model.BusinessError); ok {
 			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
@@ -60,7 +59,7 @@ func Login(c echo.Context) error {
 
 // Logout은 사용자를 로그아웃합니다.
 func Logout(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
+	_, err := middleware.UserIDFromToken(c)
 	if err != nil {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
@@ -79,8 +78,7 @@ func RefreshToken(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	authService := service.GetAuthService()
-	newToken, err := authService.RefreshUserToken(userID)
+	newToken, err := service.C().Auth.RefreshUserToken(userID)
 	if err != nil {
 		if be, ok := err.(*model.BusinessError); ok {
 			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
@@ -103,8 +101,7 @@ func ValidateToken(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	authService := service.GetAuthService()
-	user, err := authService.GetUserByID(userID)
+	user, err := service.C().User.GetUserByID(userID)
 	if err != nil {
 		if be, ok := err.(*model.BusinessError); ok {
 			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)

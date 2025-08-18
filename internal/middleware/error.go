@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/model"
 
 	"github.com/labstack/echo/v4"
@@ -31,13 +32,13 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 		apiErr.Code = be.Code
 		apiErr.Message = be.Message
 		apiErr.Details = be.Details
-		
+
 		log.Printf("비즈니스 에러: %s (코드: %s)", be.Message, string(be.Code))
 	} else if he, ok := err.(*echo.HTTPError); ok {
 		// Echo HTTPError 처리
 		code = he.Code
 		message := fmt.Sprintf("%v", he.Message)
-		
+
 		// HTTP 상태별 에러 코드 매핑
 		switch code {
 		case http.StatusNotFound:
@@ -62,14 +63,14 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 			apiErr.Code = model.ErrInternalServer
 			apiErr.Message = message
 		}
-		
+
 		log.Printf("HTTP 에러: %d %s", code, message)
 	} else {
 		// 일반 에러 처리
 		apiErr.Code = model.ErrInternalServer
 		apiErr.Message = "서버 내부 오류가 발생했습니다"
 		apiErr.Details = err.Error()
-		
+
 		log.Printf("일반 에러: %v", err)
 	}
 
@@ -83,7 +84,7 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 	}
 
 	// 표준 에러 응답
-	if err := c.JSON(code, model.APIResponse{
+	if err := c.JSON(code, dto.APIResponse{
 		Success: false,
 		Error:   apiErr,
 	}); err != nil {
@@ -112,9 +113,9 @@ func mapBusinessErrorToHTTPStatus(code model.ErrorCode) int {
 
 	// 검증 실패 (400)
 	case model.ErrValidationFailed, model.ErrInvalidInput, model.ErrWeakPassword, model.ErrRequiredField,
-		 model.ErrInvalidFormat, model.ErrInvalidRange, model.ErrInvalidUsername, model.ErrInvalidServerID,
-		 model.ErrInvalidDeptID, model.ErrCannotDeleteSelf, model.ErrLastAdmin, model.ErrDepartmentHasUsers,
-		 model.ErrDepartmentHasChild, model.ErrInvalidParentDept, model.ErrServerNotOwned, model.ErrInvalidSSHKey:
+		model.ErrInvalidFormat, model.ErrInvalidRange, model.ErrInvalidUsername, model.ErrInvalidServerID,
+		model.ErrInvalidDeptID, model.ErrCannotDeleteSelf, model.ErrLastAdmin, model.ErrDepartmentHasUsers,
+		model.ErrDepartmentHasChild, model.ErrInvalidParentDept, model.ErrServerNotOwned, model.ErrInvalidSSHKey:
 		return http.StatusBadRequest
 
 	// 서버 연결 실패 (502)
@@ -150,9 +151,9 @@ func RecoverMiddleware() echo.MiddlewareFunc {
 					if !ok {
 						err = fmt.Errorf("panic: %v", r)
 					}
-					
+
 					log.Printf("🚨 Panic 발생: %v", err)
-					
+
 					// panic을 에러로 변환하여 글로벌 에러 핸들러가 처리하도록 함
 					c.Error(err)
 				}

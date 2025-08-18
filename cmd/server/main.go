@@ -33,11 +33,11 @@ func main() {
 	}
 	log.Printf("✅ 데이터베이스 초기화 완료")
 
-	// 4. Repository & Service 초기화
+	// 4. 서비스 컨테이너 초기화 (호환성 함수 대신 직접 사용)
 	if err := service.InitializeServices(); err != nil {
 		log.Fatalf("❌ 서비스 초기화 실패: %v", err)
 	}
-	log.Printf("✅ Repository & Service 초기화 완료")
+	log.Printf("✅ 서비스 초기화 완료")
 
 	// 5. Echo 인스턴스 생성
 	e := echo.New()

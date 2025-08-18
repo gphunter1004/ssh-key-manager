@@ -150,31 +150,6 @@ func (as *AuthService) RefreshUserToken(userID uint) (string, error) {
 	return token, nil
 }
 
-// GetUserByID 사용자 ID로 사용자를 조회합니다.
-func (as *AuthService) GetUserByID(userID uint) (*model.User, error) {
-	if userID == 0 {
-		return nil, model.NewBusinessError(
-			model.ErrInvalidInput,
-			"유효하지 않은 사용자 ID입니다",
-		)
-	}
-
-	user, err := as.repos.User.FindByID(userID)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, model.NewUserNotFoundError()
-		}
-		return nil, model.NewBusinessError(
-			model.ErrDatabaseError,
-			"사용자 조회 중 오류가 발생했습니다",
-		)
-	}
-
-	// 민감한 정보 제거
-	user.Password = ""
-	return user, nil
-}
-
 // IsUserAdmin 사용자가 관리자인지 확인합니다.
 func (as *AuthService) IsUserAdmin(userID uint) bool {
 	if userID == 0 {
@@ -188,60 +163,6 @@ func (as *AuthService) IsUserAdmin(userID uint) bool {
 	}
 
 	return user.Role == model.RoleAdmin
-}
-
-// ChangePassword 사용자의 비밀번호를 변경합니다.
-func (as *AuthService) ChangePassword(userID uint, currentPassword, newPassword string) error {
-	log.Printf("🔑 비밀번호 변경 시도 (사용자 ID: %d)", userID)
-
-	// 1. 입력값 검증
-	if err := as.validatePasswordChangeInput(currentPassword, newPassword); err != nil {
-		return err
-	}
-
-	// 2. 현재 사용자 조회
-	user, err := as.repos.User.FindByID(userID)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return model.NewUserNotFoundError()
-		}
-		return model.NewBusinessError(
-			model.ErrDatabaseError,
-			"사용자 조회 중 오류가 발생했습니다",
-		)
-	}
-
-	// 3. 현재 비밀번호 확인
-	if !util.CheckPasswordHash(currentPassword, user.Password) {
-		return model.NewBusinessError(
-			model.ErrInvalidCredentials,
-			"현재 비밀번호가 올바르지 않습니다",
-		)
-	}
-
-	// 4. 새 비밀번호 해시
-	hashedPassword, err := util.HashPassword(newPassword)
-	if err != nil {
-		return model.NewBusinessError(
-			model.ErrInternalServer,
-			"새 비밀번호 처리 중 오류가 발생했습니다",
-		)
-	}
-
-	// 5. 비밀번호 업데이트
-	updates := map[string]interface{}{
-		"password": hashedPassword,
-	}
-	if err := as.repos.User.Update(userID, updates); err != nil {
-		log.Printf("❌ 비밀번호 업데이트 실패 (사용자 ID: %d): %v", userID, err)
-		return model.NewBusinessError(
-			model.ErrDatabaseError,
-			"비밀번호 변경 중 오류가 발생했습니다",
-		)
-	}
-
-	log.Printf("✅ 비밀번호 변경 완료 (사용자 ID: %d)", userID)
-	return nil
 }
 
 // ========== 내부 헬퍼 함수들 ==========
@@ -296,46 +217,6 @@ func (as *AuthService) validateAuthenticationInput(username, password string) er
 		return model.NewBusinessError(
 			model.ErrRequiredField,
 			"사용자명과 비밀번호를 입력해주세요",
-		)
-	}
-
-	return nil
-}
-
-// validatePasswordChangeInput 비밀번호 변경 입력값을 검증합니다.
-func (as *AuthService) validatePasswordChangeInput(currentPassword, newPassword string) error {
-	if currentPassword == "" {
-		return model.NewBusinessError(
-			model.ErrRequiredField,
-			"현재 비밀번호를 입력해주세요",
-		)
-	}
-
-	if newPassword == "" {
-		return model.NewBusinessError(
-			model.ErrRequiredField,
-			"새 비밀번호를 입력해주세요",
-		)
-	}
-
-	if len(newPassword) < 4 {
-		return model.NewBusinessError(
-			model.ErrWeakPassword,
-			"새 비밀번호는 최소 4자 이상이어야 합니다",
-		)
-	}
-
-	if len(newPassword) > 100 {
-		return model.NewBusinessError(
-			model.ErrWeakPassword,
-			"새 비밀번호는 최대 100자까지 가능합니다",
-		)
-	}
-
-	if currentPassword == newPassword {
-		return model.NewBusinessError(
-			model.ErrInvalidInput,
-			"새 비밀번호는 현재 비밀번호와 달라야 합니다",
 		)
 	}
 

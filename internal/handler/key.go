@@ -15,7 +15,7 @@ func CreateKey(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	sshKey, err := service.GenerateSSHKeyPair(userID)
+	sshKey, err := service.C().Key.GenerateSSHKeyPair(userID)
 	if err != nil {
 		log.Printf("❌ SSH 키 생성 실패 (사용자 ID: %d): %v", userID, err)
 		return InternalServerErrorResponse(c, "SSH 키 생성에 실패했습니다")
@@ -32,7 +32,7 @@ func GetKey(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	sshKey, err := service.GetUserSSHKey(userID)
+	sshKey, err := service.C().Key.GetUserSSHKey(userID)
 	if err != nil {
 		log.Printf("❌ SSH 키 조회 실패 (사용자 ID: %d): %v", userID, err)
 		return NotFoundResponse(c, "SSH 키를 찾을 수 없습니다. 먼저 키를 생성해주세요")
@@ -49,7 +49,7 @@ func DeleteKey(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	err = service.DeleteUserSSHKey(userID)
+	err = service.C().Key.DeleteUserSSHKey(userID)
 	if err != nil {
 		log.Printf("❌ SSH 키 삭제 실패 (사용자 ID: %d): %v", userID, err)
 		return NotFoundResponse(c, "삭제할 SSH 키를 찾을 수 없습니다")

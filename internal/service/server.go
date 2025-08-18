@@ -2,6 +2,7 @@ package service
 
 import (
 	"log"
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/repository"
 	"ssh-key-manager/internal/util"
@@ -22,7 +23,7 @@ func NewServerService(repos *repository.Repositories) *ServerService {
 }
 
 // CreateServer 새로운 서버를 등록합니다.
-func (ss *ServerService) CreateServer(userID uint, req model.ServerCreateRequest) (*model.Server, error) {
+func (ss *ServerService) CreateServer(userID uint, req dto.ServerCreateRequest) (*model.Server, error) {
 	log.Printf("🖥️ 새 서버 등록 시도: %s (%s)", req.Name, req.Host)
 
 	// 입력값 검증
@@ -145,7 +146,7 @@ func (ss *ServerService) GetServerByID(userID, serverID uint) (*model.Server, er
 }
 
 // UpdateServer 서버 정보를 업데이트합니다.
-func (ss *ServerService) UpdateServer(userID, serverID uint, req model.ServerUpdateRequest) (*model.Server, error) {
+func (ss *ServerService) UpdateServer(userID, serverID uint, req dto.ServerUpdateRequest) (*model.Server, error) {
 	log.Printf("✏️ 서버 정보 업데이트 중 (서버 ID: %d)", serverID)
 
 	// 서버 존재 및 소유권 확인
@@ -275,7 +276,7 @@ func (ss *ServerService) TestServerConnection(userID, serverID uint) (map[string
 }
 
 // DeployKeyToServers SSH 키를 선택된 서버들에 배포합니다.
-func (ss *ServerService) DeployKeyToServers(userID uint, req model.KeyDeploymentRequest) ([]model.DeploymentResult, error) {
+func (ss *ServerService) DeployKeyToServers(userID uint, req dto.KeyDeploymentRequest) ([]dto.DeploymentResult, error) {
 	log.Printf("🚀 SSH 키 배포 시작 (사용자 ID: %d, 서버 수: %d)", userID, len(req.ServerIDs))
 
 	// 사용자의 SSH 키 조회
@@ -310,13 +311,13 @@ func (ss *ServerService) DeployKeyToServers(userID uint, req model.KeyDeployment
 		)
 	}
 
-	var results []model.DeploymentResult
+	var results []dto.DeploymentResult
 
 	// 각 서버에 키 배포
 	for _, server := range servers {
 		log.Printf("📡 서버에 키 배포 중: %s (%s:%d)", server.Name, server.Host, server.Port)
 
-		result := model.DeploymentResult{
+		result := dto.DeploymentResult{
 			ServerID:   server.ID,
 			ServerName: server.Name,
 		}
@@ -413,7 +414,7 @@ func (ss *ServerService) GetDeploymentHistory(userID uint) ([]map[string]interfa
 // ========== 내부 헬퍼 함수들 ==========
 
 // validateServerCreateRequest 서버 생성 요청을 검증합니다.
-func (ss *ServerService) validateServerCreateRequest(req model.ServerCreateRequest) error {
+func (ss *ServerService) validateServerCreateRequest(req dto.ServerCreateRequest) error {
 	if strings.TrimSpace(req.Name) == "" {
 		return model.NewBusinessError(
 			model.ErrRequiredField,

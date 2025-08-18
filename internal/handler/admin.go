@@ -2,8 +2,8 @@ package handler
 
 import (
 	"log"
+	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/middleware"
-	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 	"strconv"
 
@@ -17,7 +17,7 @@ func GetAllUsers(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	users, err := service.GetAllUsers()
+	users, err := service.C().User.GetAllUsers()
 	if err != nil {
 		log.Printf("❌ 사용자 목록 조회 실패 (관리자 ID: %d): %v", adminUserID, err)
 		return InternalServerErrorResponse(c, err.Error())
@@ -40,7 +40,7 @@ func GetUserDetail(c echo.Context) error {
 		return BadRequestResponse(c, "유효하지 않은 사용자 ID입니다")
 	}
 
-	userDetail, err := service.GetUserDetailWithKey(uint(userID))
+	userDetail, err := service.C().User.GetUserDetailWithKey(uint(userID))
 	if err != nil {
 		log.Printf("❌ 사용자 상세 조회 실패 (관리자 ID: %d, 대상 ID: %d): %v", adminUserID, userID, err)
 		return NotFoundResponse(c, err.Error())
@@ -64,20 +64,20 @@ func UpdateUserRole(c echo.Context) error {
 	}
 
 	// 요청 바디 파싱
-	var req model.UserRoleUpdateRequest
+	var req dto.UserRoleUpdateRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
 	// 권한 변경 실행
-	err = service.UpdateUserRole(adminUserID, uint(targetUserID), req.Role)
+	err = service.C().User.UpdateUserRole(adminUserID, uint(targetUserID), req.Role)
 	if err != nil {
 		log.Printf("❌ 사용자 권한 변경 실패 (관리자 ID: %d, 대상 ID: %d): %v", adminUserID, targetUserID, err)
 		return BadRequestResponse(c, err.Error())
 	}
 
 	// 변경된 사용자 정보 조회
-	userDetail, err := service.GetUserDetailWithKey(uint(targetUserID))
+	userDetail, err := service.C().User.GetUserDetailWithKey(uint(targetUserID))
 	if err != nil {
 		return InternalServerErrorResponse(c, "사용자 정보 조회 실패")
 	}
@@ -106,7 +106,7 @@ func DeleteUser(c echo.Context) error {
 	}
 
 	// 사용자 삭제 실행
-	err = service.DeleteUser(adminUserID, uint(targetUserID))
+	err = service.C().User.DeleteUser(adminUserID, uint(targetUserID))
 	if err != nil {
 		log.Printf("❌ 사용자 삭제 실패 (관리자 ID: %d, 대상 ID: %d): %v", adminUserID, targetUserID, err)
 		return BadRequestResponse(c, err.Error())
@@ -123,12 +123,12 @@ func CreateDepartment(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	var req model.DepartmentCreateRequest
+	var req dto.DepartmentCreateRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
-	department, err := service.CreateDepartment(req)
+	department, err := service.C().Department.CreateDepartment(req)
 	if err != nil {
 		log.Printf("❌ 부서 생성 실패 (관리자 ID: %d): %v", adminUserID, err)
 		return BadRequestResponse(c, err.Error())
@@ -151,12 +151,12 @@ func UpdateDepartment(c echo.Context) error {
 		return BadRequestResponse(c, "유효하지 않은 부서 ID입니다")
 	}
 
-	var req model.DepartmentUpdateRequest
+	var req dto.DepartmentUpdateRequest
 	if err := c.Bind(&req); err != nil {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
-	department, err := service.UpdateDepartment(uint(deptID), req)
+	department, err := service.C().Department.UpdateDepartment(uint(deptID), req)
 	if err != nil {
 		log.Printf("❌ 부서 수정 실패 (관리자 ID: %d, 부서 ID: %d): %v", adminUserID, deptID, err)
 		return BadRequestResponse(c, err.Error())
@@ -179,7 +179,7 @@ func DeleteDepartment(c echo.Context) error {
 		return BadRequestResponse(c, "유효하지 않은 부서 ID입니다")
 	}
 
-	err = service.DeleteDepartment(uint(deptID))
+	err = service.C().Department.DeleteDepartment(uint(deptID))
 	if err != nil {
 		log.Printf("❌ 부서 삭제 실패 (관리자 ID: %d, 부서 ID: %d): %v", adminUserID, deptID, err)
 		return BadRequestResponse(c, err.Error())
@@ -202,7 +202,7 @@ func GetDepartmentUsers(c echo.Context) error {
 		return BadRequestResponse(c, "유효하지 않은 부서 ID입니다")
 	}
 
-	users, err := service.GetDepartmentUsers(uint(deptID))
+	users, err := service.C().Department.GetDepartmentUsers(uint(deptID))
 	if err != nil {
 		log.Printf("❌ 부서 사용자 조회 실패 (관리자 ID: %d, 부서 ID: %d): %v", adminUserID, deptID, err)
 		return InternalServerErrorResponse(c, err.Error())
