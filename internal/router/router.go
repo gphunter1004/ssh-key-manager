@@ -112,6 +112,10 @@ func setupAdminRoutes(api *echo.Group, jwtConfig echojwt.Config) {
 	admin.PUT("/users/:id/role", handler.UpdateUserRole)
 	admin.DELETE("/users/:id", handler.DeleteUser)
 
+	// 🆕 추가된 사용자 상태 관리 라우트들
+	admin.PUT("/users/:id/status", handler.UpdateUserStatus)   // 활성화/비활성화
+	admin.POST("/users/:id/unlock", handler.UnlockUserAccount) // 계정 잠금 해제
+
 	// SSH 키 관리 (관리자용 - 다른 사용자의 키 관리)
 	adminKeys := admin.Group("/users/:id/keys")
 	adminKeys.POST("", handler.CreateKeyForUser)             // 특정 사용자의 키 생성
