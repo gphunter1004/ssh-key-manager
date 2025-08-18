@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/util"

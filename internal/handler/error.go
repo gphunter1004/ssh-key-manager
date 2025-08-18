@@ -188,7 +188,7 @@ func RequiredFieldResponse(c echo.Context, fieldName string) error {
 // ========== 시스템 에러 응답 ==========
 
 // InternalServerErrorResponse는 서버 내부 에러 응답을 생성합니다.
-func InternalServerErrorResponseWithCode(c echo.Context, details string) error {
+func InternalServerErrorResponse(c echo.Context, details string) error {
 	return StandardErrorResponse(c, http.StatusInternalServerError,
 		model.ErrInternalServer, "서버 내부 오류가 발생했습니다", details)
 }
@@ -199,30 +199,30 @@ func DatabaseErrorResponse(c echo.Context, details string) error {
 		model.ErrDatabaseError, "데이터베이스 오류가 발생했습니다", details)
 }
 
-// ========== 기존 호환성을 위한 함수들 (점진적 마이그레이션용) ==========
+// ========== 일반적인 HTTP 상태 코드 응답 (표준 함수명) ==========
 
-// 기존 방식과 호환되는 함수들 - 점진적으로 위의 표준 함수들로 교체
+// BadRequestResponse는 잘못된 요청 응답을 생성합니다.
 func BadRequestResponse(c echo.Context, message string) error {
 	return ValidationFailedResponse(c, message)
 }
 
+// UnauthorizedResponse는 인증 실패 응답을 생성합니다.
 func UnauthorizedResponse(c echo.Context, message string) error {
 	return InvalidTokenResponse(c)
 }
 
+// NotFoundResponse는 리소스 없음 응답을 생성합니다.
 func NotFoundResponse(c echo.Context, message string) error {
 	return StandardErrorResponse(c, http.StatusNotFound,
 		model.ErrValidationFailed, message)
 }
 
-func InternalServerErrorResponse(c echo.Context, message string) error {
-	return InternalServerErrorResponseWithCode(c, message)
-}
-
+// ForbiddenResponse는 권한 거부 응답을 생성합니다.
 func ForbiddenResponse(c echo.Context, message string) error {
 	return PermissionDeniedResponse(c)
 }
 
+// ConflictResponse는 충돌 응답을 생성합니다.
 func ConflictResponse(c echo.Context, message string) error {
 	return StandardErrorResponse(c, http.StatusConflict,
 		model.ErrValidationFailed, message)

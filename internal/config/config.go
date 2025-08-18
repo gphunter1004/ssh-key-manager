@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"

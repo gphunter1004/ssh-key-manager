@@ -28,8 +28,8 @@ func GenerateSSHKeyPair(userID uint) (*model.SSHKey, error) {
 	if err != nil {
 		log.Printf("❌ SSH 키 생성 실패: %v", err)
 		return nil, model.NewBusinessError(
-			model.ErrSSHKeyGeneration, 
-			"SSH 키 생성에 실패했습니다", 
+			model.ErrSSHKeyGeneration,
+			"SSH 키 생성에 실패했습니다",
 			err.Error(),
 		)
 	}
@@ -49,7 +49,7 @@ func GetUserSSHKey(userID uint) (*model.SSHKey, error) {
 	// 1. 비즈니스 규칙 검증
 	if userID == 0 {
 		return nil, model.NewBusinessError(
-			model.ErrInvalidInput, 
+			model.ErrInvalidInput,
 			"유효하지 않은 사용자 ID입니다",
 		)
 	}
@@ -58,7 +58,7 @@ func GetUserSSHKey(userID uint) (*model.SSHKey, error) {
 	db, err := model.GetDB()
 	if err != nil {
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"데이터베이스 연결 오류가 발생했습니다",
 		)
 	}
@@ -69,7 +69,7 @@ func GetUserSSHKey(userID uint) (*model.SSHKey, error) {
 			return nil, model.NewSSHKeyNotFoundError()
 		}
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"SSH 키 조회 중 오류가 발생했습니다",
 		)
 	}
@@ -112,7 +112,7 @@ func HasUserSSHKey(userID uint) bool {
 		log.Printf("❌ SSH 키 존재 확인 실패 (사용자 ID: %d): %v", userID, err)
 		return false
 	}
-	
+
 	return count > 0
 }
 
@@ -136,7 +136,7 @@ func GetSSHKeyStatistics() (map[string]interface{}, error) {
 	db, err := model.GetDB()
 	if err != nil {
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"데이터베이스 연결 오류가 발생했습니다",
 		)
 	}
@@ -147,7 +147,7 @@ func GetSSHKeyStatistics() (map[string]interface{}, error) {
 	var totalKeys int64
 	if err := db.Model(&model.SSHKey{}).Count(&totalKeys).Error; err != nil {
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"키 통계 조회 중 오류가 발생했습니다",
 		)
 	}
@@ -163,7 +163,7 @@ func GetSSHKeyStatistics() (map[string]interface{}, error) {
 		Group("algorithm").
 		Scan(&algorithmStats).Error; err != nil {
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"알고리즘 통계 조회 중 오류가 발생했습니다",
 		)
 	}
@@ -179,7 +179,7 @@ func GetSSHKeyStatistics() (map[string]interface{}, error) {
 		Group("bits").
 		Scan(&bitsStats).Error; err != nil {
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"키 크기 통계 조회 중 오류가 발생했습니다",
 		)
 	}
@@ -194,7 +194,7 @@ func GetSSHKeyStatistics() (map[string]interface{}, error) {
 func validateKeyGeneration(userID uint) error {
 	if userID == 0 {
 		return model.NewBusinessError(
-			model.ErrInvalidInput, 
+			model.ErrInvalidInput,
 			"유효하지 않은 사용자 ID입니다",
 		)
 	}
@@ -203,7 +203,7 @@ func validateKeyGeneration(userID uint) error {
 	db, err := model.GetDB()
 	if err != nil {
 		return model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"데이터베이스 연결 오류가 발생했습니다",
 		)
 	}
@@ -211,14 +211,14 @@ func validateKeyGeneration(userID uint) error {
 	var count int64
 	if err := db.Model(&model.User{}).Where("id = ?", userID).Count(&count).Error; err != nil {
 		return model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"사용자 확인 중 오류가 발생했습니다",
 		)
 	}
 
 	if count == 0 {
 		return model.NewBusinessError(
-			model.ErrUserNotFound, 
+			model.ErrUserNotFound,
 			"사용자를 찾을 수 없습니다",
 		)
 	}
@@ -231,7 +231,7 @@ func getUserForKeyGeneration(userID uint) (*model.User, error) {
 	db, err := model.GetDB()
 	if err != nil {
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"데이터베이스 연결 오류가 발생했습니다",
 		)
 	}
@@ -240,12 +240,12 @@ func getUserForKeyGeneration(userID uint) (*model.User, error) {
 	if err := db.Select("id, username").First(&user, userID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, model.NewBusinessError(
-				model.ErrUserNotFound, 
+				model.ErrUserNotFound,
 				"사용자를 찾을 수 없습니다",
 			)
 		}
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"사용자 조회 중 오류가 발생했습니다",
 		)
 	}
@@ -258,7 +258,7 @@ func saveSSHKeyPair(userID uint, keyPair *util.SSHKeyPair) (*model.SSHKey, error
 	db, err := model.GetDB()
 	if err != nil {
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
+			model.ErrDatabaseError,
 			"데이터베이스 연결 오류가 발생했습니다",
 		)
 	}
@@ -279,20 +279,20 @@ func saveSSHKeyPair(userID uint, keyPair *util.SSHKeyPair) (*model.SSHKey, error
 		if err := tx.Where("user_id = ?", userID).Delete(&model.SSHKey{}).Error; err != nil {
 			return err
 		}
-		
+
 		// 새 키 생성
 		if err := tx.Create(sshKey).Error; err != nil {
 			return err
 		}
-		
+
 		return nil
 	})
 
 	if err != nil {
 		log.Printf("❌ SSH 키 저장 실패: %v", err)
 		return nil, model.NewBusinessError(
-			model.ErrDatabaseError, 
-			"SSH 키 저장에 실패했습니다", 
+			model.ErrDatabaseError,
+			"SSH 키 저장에 실패했습니다",
 			err.Error(),
 		)
 	}
@@ -304,4 +304,78 @@ func saveSSHKeyPair(userID uint, keyPair *util.SSHKeyPair) (*model.SSHKey, error
 func validateKeyDeletion(userID uint) error {
 	if userID == 0 {
 		return model.NewBusinessError(
-			model.ErrInvali
+			model.ErrInvalidInput,
+			"유효하지 않은 사용자 ID입니다",
+		)
+	}
+
+	// 사용자 존재 확인
+	db, err := model.GetDB()
+	if err != nil {
+		return model.NewBusinessError(
+			model.ErrDatabaseError,
+			"데이터베이스 연결 오류가 발생했습니다",
+		)
+	}
+
+	var count int64
+	if err := db.Model(&model.User{}).Where("id = ?", userID).Count(&count).Error; err != nil {
+		return model.NewBusinessError(
+			model.ErrDatabaseError,
+			"사용자 확인 중 오류가 발생했습니다",
+		)
+	}
+
+	if count == 0 {
+		return model.NewBusinessError(
+			model.ErrUserNotFound,
+			"사용자를 찾을 수 없습니다",
+		)
+	}
+
+	return nil
+}
+
+// deleteSSHKeyWithCleanup은 키 삭제와 관련 데이터 정리를 수행합니다.
+func deleteSSHKeyWithCleanup(userID uint) error {
+	db, err := model.GetDB()
+	if err != nil {
+		return model.NewBusinessError(
+			model.ErrDatabaseError,
+			"데이터베이스 연결 오류가 발생했습니다",
+		)
+	}
+
+	// 트랜잭션으로 안전하게 삭제
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// 1. 배포 기록에서 해당 키와 관련된 레코드 삭제
+		var sshKey model.SSHKey
+		if err := tx.Where("user_id = ?", userID).First(&sshKey).Error; err == nil {
+			// 배포 기록 삭제
+			if err := tx.Where("ssh_key_id = ?", sshKey.ID).Delete(&model.ServerKeyDeployment{}).Error; err != nil {
+				return err
+			}
+		}
+
+		// 2. SSH 키 삭제
+		if err := tx.Where("user_id = ?", userID).Delete(&model.SSHKey{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return model.NewSSHKeyNotFoundError()
+		}
+		log.Printf("❌ SSH 키 삭제 실패 (사용자 ID: %d): %v", userID, err)
+		return model.NewBusinessError(
+			model.ErrDatabaseError,
+			"SSH 키 삭제 중 오류가 발생했습니다",
+			err.Error(),
+		)
+	}
+
+	return nil
+}

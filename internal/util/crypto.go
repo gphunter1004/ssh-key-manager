@@ -20,7 +20,7 @@ import (
 
 var (
 	// 글로벌 JWT 시크릿 (한 번만 초기화)
-	jwtSecret string
+	jwtSecret         string
 	secretInitialized bool
 )
 
@@ -48,7 +48,7 @@ func InitializeJWTSecret(configSecret string) {
 		jwtSecret = generateSecureSecret()
 		log.Printf("⚠️ JWT 시크릿이 설정되지 않아 임시 시크릿을 생성했습니다")
 	}
-	
+
 	secretInitialized = true
 }
 
@@ -77,7 +77,7 @@ func GenerateJWT(userID uint) (string, error) {
 	if userID == 0 {
 		return "", fmt.Errorf("userID cannot be zero")
 	}
-	
+
 	secret, err := GetJWTSecret()
 	if err != nil {
 		return "", err
@@ -105,7 +105,7 @@ func ValidateJWT(tokenString string) (*JWTClaims, error) {
 	if tokenString == "" {
 		return nil, fmt.Errorf("token string is empty")
 	}
-	
+
 	secret, err := GetJWTSecret()
 	if err != nil {
 		return nil, err
@@ -148,7 +148,7 @@ func HashPassword(password string) (string, error) {
 	if len(password) > 72 {
 		return "", fmt.Errorf("password too long (max 72 characters)")
 	}
-	
+
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(bytes), err
 }
@@ -301,7 +301,7 @@ func generatePPKKey(privateKey *rsa.PrivateKey, comment string) ([]byte, error) 
 
 	// 공개키를 SSH wire format으로 인코딩
 	publicKeyBytes := sshPublicKey.Marshal()
-	
+
 	// 개인키를 SSH wire format으로 인코딩
 	privateKeyBytes, err := marshalRSAPrivateKey(privateKey)
 	if err != nil {
@@ -325,11 +325,11 @@ Public-Lines: %d
 Private-Lines: %d
 %s
 Private-MAC: %s
-`, 
+`,
 		comment,
 		len(publicLines),
 		strings.Join(publicLines, "\n"),
-		len(privateLines), 
+		len(privateLines),
 		strings.Join(privateLines, "\n"),
 		generateSimpleMAC(publicKeyBytes, privateKeyBytes),
 	)
@@ -342,7 +342,7 @@ func marshalRSAPrivateKey(privateKey *rsa.PrivateKey) ([]byte, error) {
 	d := privateKey.D.Bytes()
 	p := privateKey.Primes[0].Bytes()
 	q := privateKey.Primes[1].Bytes()
-	
+
 	// iqmp = q^-1 mod p
 	qInv := new(big.Int).ModInverse(privateKey.Primes[1], privateKey.Primes[0])
 	iqmp := qInv.Bytes()
@@ -361,7 +361,7 @@ func marshalMpint(data []byte) []byte {
 	if len(data) > 0 && data[0]&0x80 != 0 {
 		data = append([]byte{0}, data...)
 	}
-	
+
 	length := uint32(len(data))
 	result := make([]byte, 4+len(data))
 	result[0] = byte(length >> 24)
@@ -369,7 +369,7 @@ func marshalMpint(data []byte) []byte {
 	result[2] = byte(length >> 8)
 	result[3] = byte(length)
 	copy(result[4:], data)
-	
+
 	return result
 }
 
@@ -401,37 +401,10 @@ func generateSimpleMAC(publicKey, privateKey []byte) string {
 // sanitizeComment는 안전한 comment를 만듭니다.
 func sanitizeComment(comment string) string {
 	return strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || 
-		   (r >= '0' && r <= '9') || r == '-' || r == '_' || r == ' ' {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_' || r == ' ' {
 			return r
 		}
 		return -1
 	}, comment)
-}
-
-// ========== 호환성을 위한 레거시 함수들 ==========
-
-// GeneratePrivateKey는 호환성을 위한 래퍼 함수입니다.
-func GeneratePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
-	return generateRSAPrivateKey(bitSize)
-}
-
-// EncodePrivateKeyToPEM은 호환성을 위한 래퍼 함수입니다.
-func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) ([]byte, error) {
-	return encodePrivateKeyToPEM(privateKey)
-}
-
-// GeneratePublicKeyWithComment는 호환성을 위한 래퍼 함수입니다.
-func GeneratePublicKeyWithComment(privateKey *rsa.PrivateKey, comment string) ([]byte, error) {
-	return generateSSHPublicKey(privateKey, comment)
-}
-
-// GenerateValidPPK는 호환성을 위한 래퍼 함수입니다.
-func GenerateValidPPK(privateKey *rsa.PrivateKey, comment string) ([]byte, error) {
-	return generatePPKKey(privateKey, comment)
-}
-
-// GenerateSimplePPK는 호환성을 위한 래퍼 함수입니다.
-func GenerateSimplePPK(privateKey *rsa.PrivateKey, comment string) ([]byte, error) {
-	return generatePPKKey(privateKey, comment)
 }

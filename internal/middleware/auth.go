@@ -3,9 +3,9 @@ package middleware
 import (
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"ssh-key-manager/internal/model"
-	"ssh-key-manager/internal/util"
 	"strconv"
 	"time"
 
@@ -115,7 +115,7 @@ func UserIDFromToken(c echo.Context) (uint, error) {
 		if v < 0 {
 			return 0, fmt.Errorf("user_id cannot be negative: %f", v)
 		}
-		if v > float64(^uint(0)) {
+		if v > float64(math.MaxUint32) { // uint 범위를 uint32로 제한
 			return 0, fmt.Errorf("user_id out of uint range: %f", v)
 		}
 		userID = uint(v)
@@ -128,7 +128,7 @@ func UserIDFromToken(c echo.Context) (uint, error) {
 		if v < 0 {
 			return 0, fmt.Errorf("user_id cannot be negative: %d", v)
 		}
-		if v > int64(^uint(0)) {
+		if v > int64(math.MaxUint32) { // uint 범위를 uint32로 제한
 			return 0, fmt.Errorf("user_id out of uint range: %d", v)
 		}
 		userID = uint(v)
@@ -136,12 +136,9 @@ func UserIDFromToken(c echo.Context) (uint, error) {
 		if v == "" {
 			return 0, fmt.Errorf("user_id string is empty")
 		}
-		id, err := strconv.ParseUint(v, 10, 64)
+		id, err := strconv.ParseUint(v, 10, 32) // 32비트로 제한
 		if err != nil {
 			return 0, fmt.Errorf("invalid user_id string format: %v", err)
-		}
-		if id > uint64(^uint(0)) {
-			return 0, fmt.Errorf("user_id string out of uint range: %d", id)
 		}
 		userID = uint(id)
 	default:
