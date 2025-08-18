@@ -3,7 +3,6 @@ package handler
 import (
 	"log"
 	"ssh-key-manager/internal/dto"
-	"ssh-key-manager/internal/middleware"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 	"strconv"
@@ -13,7 +12,6 @@ import (
 
 // CreateServer는 새로운 서버를 등록합니다.
 func CreateServer(c echo.Context) error {
-	// 미들웨어에서 이미 인증됨
 	userID, _ := GetUserID(c)
 
 	var req dto.ServerCreateRequest
@@ -45,10 +43,7 @@ func CreateServer(c echo.Context) error {
 
 // GetServers는 사용자의 서버 목록을 반환합니다.
 func GetServers(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	servers, err := service.C().Server.GetUserServers(userID)
 	if err != nil {
@@ -97,10 +92,7 @@ func GetServer(c echo.Context) error {
 
 // UpdateServer는 서버 정보를 업데이트합니다.
 func UpdateServer(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
-	}
+	userID, _ := GetUserID(c)
 
 	serverIDParam := c.Param("id")
 	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
@@ -136,10 +128,7 @@ func UpdateServer(c echo.Context) error {
 
 // DeleteServer는 서버를 삭제합니다.
 func DeleteServer(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	serverIDParam := c.Param("id")
 	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
@@ -169,10 +158,7 @@ func DeleteServer(c echo.Context) error {
 
 // TestServerConnection은 서버 연결을 테스트합니다.
 func TestServerConnection(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	serverIDParam := c.Param("id")
 	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
@@ -203,10 +189,7 @@ func TestServerConnection(c echo.Context) error {
 
 // DeployKeyToServers는 SSH 키를 서버에 배포합니다.
 func DeployKeyToServers(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	var req dto.KeyDeploymentRequest
 	if err := ValidateJSONRequest(c, &req); err != nil {
@@ -261,10 +244,7 @@ func DeployKeyToServers(c echo.Context) error {
 
 // GetDeploymentHistory는 배포 기록을 반환합니다.
 func GetDeploymentHistory(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	history, err := service.C().Server.GetDeploymentHistory(userID)
 	if err != nil {

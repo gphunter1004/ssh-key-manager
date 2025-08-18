@@ -1,9 +1,9 @@
+// internal/handler/admin.go
 package handler
 
 import (
 	"log"
 	"ssh-key-manager/internal/dto"
-	"ssh-key-manager/internal/middleware"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 	"strconv"
@@ -13,10 +13,7 @@ import (
 
 // GetAllUsers는 모든 사용자 목록을 반환합니다 (관리자용).
 func GetAllUsers(c echo.Context) error {
-	adminUserID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	adminUserID, _ := GetUserID(c)
 
 	users, err := service.C().User.GetAllUsers()
 	if err != nil {
@@ -29,10 +26,7 @@ func GetAllUsers(c echo.Context) error {
 
 // GetUserDetail는 특정 사용자의 상세 정보를 반환합니다 (관리자용).
 func GetUserDetail(c echo.Context) error {
-	adminUserID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	adminUserID, _ := GetUserID(c)
 
 	// URL 파라미터에서 사용자 ID 추출
 	userIDParam := c.Param("id")
@@ -105,7 +99,6 @@ func UpdateUserRole(c echo.Context) error {
 
 // DeleteUser는 사용자를 삭제합니다 (관리자용).
 func DeleteUser(c echo.Context) error {
-	// 미들웨어에서 이미 관리자 권한 검증됨
 	adminUserID, _ := GetUserID(c)
 
 	targetUserID, err := ParseUserIDParam(c)
@@ -143,10 +136,7 @@ func DeleteUser(c echo.Context) error {
 
 // CreateDepartment는 새로운 부서를 생성합니다.
 func CreateDepartment(c echo.Context) error {
-	adminUserID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	adminUserID, _ := GetUserID(c)
 
 	var req dto.DepartmentCreateRequest
 	if err := ValidateJSONRequest(c, &req); err != nil {
@@ -177,10 +167,7 @@ func CreateDepartment(c echo.Context) error {
 
 // UpdateDepartment는 부서 정보를 수정합니다.
 func UpdateDepartment(c echo.Context) error {
-	adminUserID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	adminUserID, _ := GetUserID(c)
 
 	deptIDParam := c.Param("id")
 	deptID, err := strconv.ParseUint(deptIDParam, 10, 32)
@@ -215,10 +202,7 @@ func UpdateDepartment(c echo.Context) error {
 
 // DeleteDepartment는 부서를 삭제합니다.
 func DeleteDepartment(c echo.Context) error {
-	adminUserID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	adminUserID, _ := GetUserID(c)
 
 	deptIDParam := c.Param("id")
 	deptID, err := strconv.ParseUint(deptIDParam, 10, 32)
@@ -250,10 +234,7 @@ func DeleteDepartment(c echo.Context) error {
 
 // GetDepartmentUsers는 특정 부서의 사용자 목록을 조회합니다.
 func GetDepartmentUsers(c echo.Context) error {
-	adminUserID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	adminUserID, _ := GetUserID(c)
 
 	deptIDParam := c.Param("id")
 	deptID, err := strconv.ParseUint(deptIDParam, 10, 32)

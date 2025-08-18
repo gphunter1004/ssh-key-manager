@@ -2,7 +2,6 @@ package handler
 
 import (
 	"log"
-	"ssh-key-manager/internal/middleware"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 
@@ -11,10 +10,7 @@ import (
 
 // CreateKey는 SSH 키 쌍을 생성합니다.
 func CreateKey(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	sshKey, err := service.C().Key.GenerateSSHKeyPair(userID)
 	if err != nil {
@@ -38,10 +34,7 @@ func CreateKey(c echo.Context) error {
 
 // GetKey는 사용자의 SSH 키를 조회합니다.
 func GetKey(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	sshKey, err := service.C().Key.GetUserSSHKey(userID)
 	if err != nil {
@@ -63,12 +56,9 @@ func GetKey(c echo.Context) error {
 
 // DeleteKey는 사용자의 SSH 키를 삭제합니다.
 func DeleteKey(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
-	err = service.C().Key.DeleteUserSSHKey(userID)
+	err := service.C().Key.DeleteUserSSHKey(userID)
 	if err != nil {
 		log.Printf("❌ SSH 키 삭제 실패 (사용자 ID: %d): %v", userID, err)
 		if be, ok := err.(*model.BusinessError); ok {

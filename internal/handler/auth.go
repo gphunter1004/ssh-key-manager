@@ -2,7 +2,6 @@ package handler
 
 import (
 	"ssh-key-manager/internal/dto"
-	"ssh-key-manager/internal/middleware"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 
@@ -66,11 +65,6 @@ func Login(c echo.Context) error {
 
 // Logout은 사용자를 로그아웃합니다.
 func Logout(c echo.Context) error {
-	_, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
-	}
-
 	responseData := map[string]interface{}{
 		"message": "로그아웃이 완료되었습니다",
 	}
@@ -80,10 +74,7 @@ func Logout(c echo.Context) error {
 
 // RefreshToken은 JWT 토큰을 갱신합니다.
 func RefreshToken(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	newToken, err := service.C().Auth.RefreshUserToken(userID)
 	if err != nil {
@@ -100,7 +91,6 @@ func RefreshToken(c echo.Context) error {
 
 // ValidateToken은 토큰의 유효성을 검사합니다.
 func ValidateToken(c echo.Context) error {
-	// 미들웨어에서 이미 토큰 검증됨
 	userID, _ := GetUserID(c)
 
 	user, err := service.C().User.GetUserByID(userID)

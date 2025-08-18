@@ -92,7 +92,7 @@ func RequireAdmin() echo.MiddlewareFunc {
 
 			// 4. Context에 사용자 ID 저장 (핸들러에서 사용)
 			c.Set("userID", userID)
-			log.Printf("✅ 관리자 권한 확인 성공 (사용자 ID: %d)", userID)
+
 			return next(c)
 		}
 	}

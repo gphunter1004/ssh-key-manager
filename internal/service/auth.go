@@ -118,6 +118,7 @@ func (as *AuthService) AuthenticateUser(username, password string) (string, *mod
 	}
 
 	log.Printf("✅ 사용자 인증 완료: %s (ID: %d)", username, user.ID)
+
 	user.Password = "" // 응답에서 비밀번호 제거
 	return token, user, nil
 }

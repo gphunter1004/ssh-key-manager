@@ -2,7 +2,6 @@ package handler
 
 import (
 	"ssh-key-manager/internal/dto"
-	"ssh-key-manager/internal/middleware"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 
@@ -11,10 +10,7 @@ import (
 
 // GetCurrentUser는 현재 로그인한 사용자 정보를 반환합니다.
 func GetCurrentUser(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	user, err := service.C().User.GetUserByID(userID)
 	if err != nil {
@@ -46,10 +42,7 @@ func GetCurrentUser(c echo.Context) error {
 
 // UpdateUserProfile은 사용자 프로필을 업데이트합니다.
 func UpdateUserProfile(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
-	}
+	userID, _ := GetUserID(c)
 
 	var req dto.UserUpdateRequest
 	if err := ValidateJSONRequest(c, &req); err != nil {
