@@ -51,6 +51,8 @@
             <button id="logout-btn">로그아웃</button>
             <div class="nav-buttons">
                 <button id="nav-keys" class="nav-btn active">내 키 관리</button>
+                <button id="nav-servers" class="nav-btn">서버 관리</button>
+                <button id="nav-departments" class="nav-btn">부서 관리</button>
                 <button id="nav-users" class="nav-btn">사용자 목록</button>
                 <button id="nav-profile" class="nav-btn">프로필</button>
             </div>
@@ -58,12 +60,13 @@
 
         <!-- 키 관리 뷰 -->
         <div id="keys-view" class="view-section">
-            <h2>SSH Key Management</h2>
-            
-            <div class="key-controls">
-                <button data-action="key-create">키 생성/재생성</button>
-                <button data-action="key-view">키 보기</button>
-                <button data-action="key-delete" class="danger">키 삭제</button>
+            <div class="action-bar">
+                <h3>🔑 SSH 키 관리</h3>
+                <div class="action-buttons">
+                    <button data-action="key-create" class="btn-primary">키 생성/재생성</button>
+                    <button data-action="key-view" class="btn-secondary">키 보기</button>
+                    <button data-action="key-delete" class="btn-danger">키 삭제</button>
+                </div>
             </div>
 
             <div id="key-info"></div>
@@ -110,6 +113,103 @@
                         <pre id="key-ppk"></pre>
                         <button class="copy-btn" data-action="copy" data-target="key-ppk" data-type="PPK 키">복사</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 서버 관리 뷰 -->
+        <div id="servers-view" class="view-section hidden">
+            <div class="action-bar">
+                <h3>🖥️ 서버 관리</h3>
+                <div class="action-buttons">
+                    <button data-action="server-create" class="btn-primary">서버 추가</button>
+                    <button data-action="server-refresh" class="btn-secondary">새로고침</button>
+                    <button data-action="deploy-all" class="btn-success">전체 배포</button>
+                </div>
+            </div>
+
+            <!-- 서버 추가 폼 -->
+            <div id="server-form-modal" class="form-modal hidden">
+                <h4>새 서버 추가</h4>
+                <form id="server-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="server-name">서버명</label>
+                            <input type="text" id="server-name" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="server-host">호스트</label>
+                            <input type="text" id="server-host" name="host" required placeholder="예: 192.168.1.100">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="server-port">포트</label>
+                            <input type="number" id="server-port" name="port" value="22" min="1" max="65535">
+                        </div>
+                        <div class="form-group">
+                            <label for="server-username">SSH 사용자명</label>
+                            <input type="text" id="server-username" name="username" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="server-description">설명</label>
+                        <textarea id="server-description" name="description" placeholder="서버 설명 (선택사항)"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">서버 추가</button>
+                        <button type="button" data-action="server-form-cancel" class="btn-secondary">취소</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 서버 목록 -->
+            <div class="cards-container">
+                <div id="servers-list">
+                    <!-- 동적 로드 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 부서 관리 뷰 -->
+        <div id="departments-view" class="view-section hidden">
+            <div class="action-bar">
+                <h3>🏢 부서 관리</h3>
+                <div class="action-buttons">
+                    <button data-action="department-create" class="btn-primary">부서 추가</button>
+                    <button data-action="department-refresh" class="btn-secondary">새로고침</button>
+                </div>
+            </div>
+
+            <!-- 부서 추가 폼 -->
+            <div id="department-form-modal" class="form-modal hidden">
+                <h4>새 부서 추가</h4>
+                <form id="department-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dept-code">부서 코드</label>
+                            <input type="text" id="dept-code" name="code" required placeholder="예: IT, HR, SALES">
+                        </div>
+                        <div class="form-group">
+                            <label for="dept-name">부서명</label>
+                            <input type="text" id="dept-name" name="name" required placeholder="예: IT팀">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="dept-description">설명</label>
+                        <textarea id="dept-description" name="description" placeholder="부서 설명 (선택사항)"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">부서 추가</button>
+                        <button type="button" data-action="department-form-cancel" class="btn-secondary">취소</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 부서 목록 -->
+            <div class="cards-container">
+                <div id="departments-list">
+                    <!-- 동적 로드 -->
                 </div>
             </div>
         </div>
@@ -163,10 +263,23 @@
 <div id="user-detail-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>사용자 상세 정보</h3>
+            <h3>상세 정보</h3>
             <button class="close">&times;</button>
         </div>
         <div id="user-detail-content">
+            <!-- 동적 로드 -->
+        </div>
+    </div>
+</div>
+
+<!-- 키 배포 모달 -->
+<div id="deploy-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>키 배포</h3>
+            <button class="close">&times;</button>
+        </div>
+        <div id="deploy-content">
             <!-- 동적 로드 -->
         </div>
     </div>
