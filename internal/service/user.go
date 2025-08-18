@@ -13,12 +13,12 @@ import (
 
 // UserService 사용자 관리 서비스
 type UserService struct {
-	repos *repository.Repositories
+	userRepo *repository.UserRepository
 }
 
-// NewUserService 사용자 서비스 생성자
-func NewUserService(repos *repository.Repositories) *UserService {
-	return &UserService{repos: repos}
+// NewUserService 사용자 서비스 생성자 (직접 의존성 주입)
+func NewUserService(userRepo *repository.UserRepository) *UserService {
+	return &UserService{userRepo: userRepo}
 }
 
 // GetUserByID ID로 사용자를 조회합니다.
@@ -30,7 +30,7 @@ func (us *UserService) GetUserByID(userID uint) (*model.User, error) {
 		)
 	}
 
-	user, err := us.repos.User.FindByID(userID)
+	user, err := us.userRepo.FindByID(userID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, model.NewUserNotFoundError()
@@ -41,7 +41,6 @@ func (us *UserService) GetUserByID(userID uint) (*model.User, error) {
 		)
 	}
 
-	// 민감한 정보 제거
 	user.Password = ""
 	return user, nil
 }
@@ -50,8 +49,7 @@ func (us *UserService) GetUserByID(userID uint) (*model.User, error) {
 func (us *UserService) UpdateUserProfile(userID uint, req dto.UserUpdateRequest) (*model.User, error) {
 	log.Printf("✏️ 사용자 프로필 업데이트 (ID: %d)", userID)
 
-	// 사용자 존재 확인
-	user, err := us.repos.User.FindByID(userID)
+	user, err := us.userRepo.FindByID(userID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, model.NewUserNotFoundError()
@@ -64,12 +62,10 @@ func (us *UserService) UpdateUserProfile(userID uint, req dto.UserUpdateRequest)
 
 	updates := make(map[string]interface{})
 
-	// 사용자명 업데이트
 	if req.Username != "" && req.Username != user.Username {
 		username := strings.TrimSpace(req.Username)
 		if username != "" {
-			// 중복 확인
-			exists, err := us.repos.User.ExistsByUsername(username)
+			exists, err := us.userRepo.ExistsByUsername(username)
 			if err != nil {
 				return nil, model.NewBusinessError(
 					model.ErrDatabaseError,
@@ -86,7 +82,6 @@ func (us *UserService) UpdateUserProfile(userID uint, req dto.UserUpdateRequest)
 		}
 	}
 
-	// 비밀번호 업데이트
 	if req.NewPassword != "" {
 		if len(req.NewPassword) < 4 {
 			return nil, model.NewBusinessError(
@@ -104,9 +99,8 @@ func (us *UserService) UpdateUserProfile(userID uint, req dto.UserUpdateRequest)
 		updates["password"] = hashedPassword
 	}
 
-	// 업데이트 실행
 	if len(updates) > 0 {
-		if err := us.repos.User.Update(userID, updates); err != nil {
+		if err := us.userRepo.Update(userID, updates); err != nil {
 			if strings.Contains(err.Error(), "duplicate") {
 				return nil, model.NewBusinessError(
 					model.ErrUserAlreadyExists,
@@ -119,8 +113,7 @@ func (us *UserService) UpdateUserProfile(userID uint, req dto.UserUpdateRequest)
 			)
 		}
 
-		// 업데이트된 정보 다시 조회
-		user, err = us.repos.User.FindByID(userID)
+		user, err = us.userRepo.FindByID(userID)
 		if err != nil {
 			return nil, model.NewBusinessError(
 				model.ErrDatabaseError,
@@ -129,7 +122,6 @@ func (us *UserService) UpdateUserProfile(userID uint, req dto.UserUpdateRequest)
 		}
 	}
 
-	// 비밀번호 필드 제거
 	user.Password = ""
 	log.Printf("✅ 사용자 프로필 업데이트 완료: %s", user.Username)
 	return user, nil
@@ -139,7 +131,7 @@ func (us *UserService) UpdateUserProfile(userID uint, req dto.UserUpdateRequest)
 func (us *UserService) GetAllUsers() ([]model.User, error) {
 	log.Printf("👥 모든 사용자 목록 조회")
 
-	users, err := us.repos.User.FindAll()
+	users, err := us.userRepo.FindAll()
 	if err != nil {
 		log.Printf("❌ 사용자 목록 조회 실패: %v", err)
 		return nil, model.NewBusinessError(
@@ -148,7 +140,6 @@ func (us *UserService) GetAllUsers() ([]model.User, error) {
 		)
 	}
 
-	// 모든 사용자의 비밀번호 필드 제거
 	for i := range users {
 		users[i].Password = ""
 	}
@@ -161,7 +152,7 @@ func (us *UserService) GetAllUsers() ([]model.User, error) {
 func (us *UserService) GetUserDetailWithKey(userID uint) (map[string]interface{}, error) {
 	log.Printf("🔍 사용자 상세 정보 조회 중 (ID: %d)", userID)
 
-	user, err := us.repos.User.FindByID(userID)
+	user, err := us.userRepo.FindByID(userID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, model.NewUserNotFoundError()
@@ -172,14 +163,8 @@ func (us *UserService) GetUserDetailWithKey(userID uint) (map[string]interface{}
 		)
 	}
 
-	// SSH 키 존재 여부 및 정보 확인
-	hasSSHKey, err := us.repos.SSHKey.ExistsByUserID(userID)
-	if err != nil {
-		return nil, model.NewBusinessError(
-			model.ErrDatabaseError,
-			"SSH 키 확인 중 오류가 발생했습니다",
-		)
-	}
+	// SSH 키 존재 여부 확인 (KeyService 사용)
+	hasSSHKey := C().Key.HasUserSSHKey(userID)
 
 	responseData := map[string]interface{}{
 		"id":          user.ID,
@@ -190,14 +175,11 @@ func (us *UserService) GetUserDetailWithKey(userID uint) (map[string]interface{}
 		"updated_at":  user.UpdatedAt,
 	}
 
-	// SSH 키 상세 정보 포함 (있는 경우)
 	if hasSSHKey {
-		sshKey, err := us.repos.SSHKey.FindByUserID(userID)
+		sshKey, err := C().Key.GetUserSSHKey(userID)
 		if err == nil {
 			responseData["ssh_key"] = map[string]interface{}{
 				"id":         sshKey.ID,
-				"algorithm":  sshKey.Algorithm,
-				"bits":       sshKey.Bits,
 				"created_at": sshKey.CreatedAt,
 				"updated_at": sshKey.UpdatedAt,
 			}
@@ -212,8 +194,7 @@ func (us *UserService) GetUserDetailWithKey(userID uint) (map[string]interface{}
 func (us *UserService) UpdateUserRole(adminUserID, targetUserID uint, newRole string) error {
 	log.Printf("👑 사용자 권한 변경 시도 (관리자 ID: %d, 대상 ID: %d, 새 권한: %s)", adminUserID, targetUserID, newRole)
 
-	// 관리자 권한 확인
-	admin, err := us.repos.User.FindByID(adminUserID)
+	admin, err := us.userRepo.FindByID(adminUserID)
 	if err != nil {
 		return model.NewBusinessError(
 			model.ErrUserNotFound,
@@ -227,7 +208,6 @@ func (us *UserService) UpdateUserRole(adminUserID, targetUserID uint, newRole st
 		)
 	}
 
-	// 권한 값 검증
 	if newRole != string(model.RoleUser) && newRole != string(model.RoleAdmin) {
 		return model.NewBusinessError(
 			model.ErrInvalidInput,
@@ -235,8 +215,7 @@ func (us *UserService) UpdateUserRole(adminUserID, targetUserID uint, newRole st
 		)
 	}
 
-	// 대상 사용자 조회
-	targetUser, err := us.repos.User.FindByID(targetUserID)
+	targetUser, err := us.userRepo.FindByID(targetUserID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return model.NewUserNotFoundError()
@@ -247,7 +226,6 @@ func (us *UserService) UpdateUserRole(adminUserID, targetUserID uint, newRole st
 		)
 	}
 
-	// 자신의 권한은 변경할 수 없음 (안전장치)
 	if adminUserID == targetUserID {
 		return model.NewBusinessError(
 			model.ErrCannotDeleteSelf,
@@ -255,9 +233,8 @@ func (us *UserService) UpdateUserRole(adminUserID, targetUserID uint, newRole st
 		)
 	}
 
-	// 마지막 관리자 보호 (최소 1명의 관리자 유지)
 	if targetUser.Role == model.RoleAdmin && newRole == string(model.RoleUser) {
-		adminCount, err := us.repos.User.CountByRole(model.RoleAdmin)
+		adminCount, err := us.userRepo.CountByRole(model.RoleAdmin)
 		if err != nil {
 			return model.NewBusinessError(
 				model.ErrDatabaseError,
@@ -272,12 +249,11 @@ func (us *UserService) UpdateUserRole(adminUserID, targetUserID uint, newRole st
 		}
 	}
 
-	// 권한 변경
 	oldRole := string(targetUser.Role)
 	updates := map[string]interface{}{
 		"role": model.UserRole(newRole),
 	}
-	if err := us.repos.User.Update(targetUserID, updates); err != nil {
+	if err := us.userRepo.Update(targetUserID, updates); err != nil {
 		log.Printf("❌ 권한 변경 실패: %v", err)
 		return model.NewBusinessError(
 			model.ErrDatabaseError,
@@ -293,8 +269,7 @@ func (us *UserService) UpdateUserRole(adminUserID, targetUserID uint, newRole st
 func (us *UserService) DeleteUser(adminUserID, targetUserID uint) error {
 	log.Printf("🗑️ 사용자 삭제 시도 (관리자 ID: %d, 대상 ID: %d)", adminUserID, targetUserID)
 
-	// 관리자 권한 확인
-	admin, err := us.repos.User.FindByID(adminUserID)
+	admin, err := us.userRepo.FindByID(adminUserID)
 	if err != nil {
 		return model.NewBusinessError(
 			model.ErrUserNotFound,
@@ -308,8 +283,7 @@ func (us *UserService) DeleteUser(adminUserID, targetUserID uint) error {
 		)
 	}
 
-	// 사용자 존재 확인
-	user, err := us.repos.User.FindByID(targetUserID)
+	user, err := us.userRepo.FindByID(targetUserID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return model.NewUserNotFoundError()
@@ -320,7 +294,6 @@ func (us *UserService) DeleteUser(adminUserID, targetUserID uint) error {
 		)
 	}
 
-	// 자신을 삭제하려는지 확인
 	if adminUserID == targetUserID {
 		return model.NewBusinessError(
 			model.ErrCannotDeleteSelf,
@@ -328,9 +301,8 @@ func (us *UserService) DeleteUser(adminUserID, targetUserID uint) error {
 		)
 	}
 
-	// 마지막 관리자 보호
 	if user.Role == model.RoleAdmin {
-		adminCount, err := us.repos.User.CountByRole(model.RoleAdmin)
+		adminCount, err := us.userRepo.CountByRole(model.RoleAdmin)
 		if err != nil {
 			return model.NewBusinessError(
 				model.ErrDatabaseError,
@@ -345,31 +317,21 @@ func (us *UserService) DeleteUser(adminUserID, targetUserID uint) error {
 		}
 	}
 
-	// 트랜잭션으로 관련 데이터 함께 삭제
-	err = us.repos.TxManager.WithTransaction(func(tx *gorm.DB) error {
+	// 트랜잭션으로 관련 데이터 함께 삭제 (다른 서비스 사용)
+	err = us.userRepo.GetDB().Transaction(func(tx *gorm.DB) error {
 		// SSH 키 삭제
-		if err := us.repos.SSHKey.DeleteByUserID(targetUserID); err != nil {
-			return err
-		}
+		C().Key.DeleteUserSSHKey(targetUserID)
 
 		// 서버 삭제 (사용자 소유 서버들)
-		servers, err := us.repos.Server.FindByUserID(targetUserID)
-		if err != nil {
-			return err
-		}
-		for _, server := range servers {
-			// 배포 기록 먼저 삭제
-			if err := us.repos.Deployment.DeleteByServerID(server.ID); err != nil {
-				return err
-			}
-			// 서버 삭제
-			if err := us.repos.Server.Delete(server.ID); err != nil {
-				return err
+		servers, err := C().Server.GetUserServers(targetUserID)
+		if err == nil {
+			for _, server := range servers {
+				C().Server.DeleteServer(targetUserID, server.ID)
 			}
 		}
 
 		// 사용자 삭제
-		return us.repos.User.Delete(targetUserID)
+		return us.userRepo.Delete(targetUserID)
 	})
 
 	if err != nil {

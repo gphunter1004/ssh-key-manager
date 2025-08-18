@@ -12,12 +12,12 @@ import (
 
 // AuthService 인증 관리 서비스
 type AuthService struct {
-	repos *repository.Repositories
+	userRepo *repository.UserRepository
 }
 
 // NewAuthService 인증 서비스 생성자
-func NewAuthService(repos *repository.Repositories) *AuthService {
-	return &AuthService{repos: repos}
+func NewAuthService(userRepo *repository.UserRepository) *AuthService {
+	return &AuthService{userRepo: userRepo}
 }
 
 // RegisterUser 새로운 사용자를 등록합니다.
@@ -30,7 +30,7 @@ func (as *AuthService) RegisterUser(username, password string) (*model.User, err
 	}
 
 	// 2. 사용자명 중복 확인
-	exists, err := as.repos.User.ExistsByUsername(username)
+	exists, err := as.userRepo.ExistsByUsername(username)
 	if err != nil {
 		return nil, model.NewBusinessError(
 			model.ErrDatabaseError,
@@ -61,7 +61,7 @@ func (as *AuthService) RegisterUser(username, password string) (*model.User, err
 		Role:     model.RoleUser,
 	}
 
-	if err := as.repos.User.Create(user); err != nil {
+	if err := as.userRepo.Create(user); err != nil {
 		if strings.Contains(err.Error(), "duplicate") ||
 			strings.Contains(err.Error(), "unique") {
 			return nil, model.NewBusinessError(
@@ -91,7 +91,7 @@ func (as *AuthService) AuthenticateUser(username, password string) (string, *mod
 	}
 
 	// 2. 사용자 조회
-	user, err := as.repos.User.FindByUsername(username)
+	user, err := as.userRepo.FindByUsername(username)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return "", nil, model.NewInvalidCredentialsError()
@@ -125,7 +125,7 @@ func (as *AuthService) AuthenticateUser(username, password string) (string, *mod
 // RefreshUserToken 사용자의 JWT 토큰을 갱신합니다.
 func (as *AuthService) RefreshUserToken(userID uint) (string, error) {
 	// 1. 사용자 존재 확인
-	exists, err := as.repos.User.ExistsByID(userID)
+	exists, err := as.userRepo.ExistsByID(userID)
 	if err != nil {
 		return "", model.NewBusinessError(
 			model.ErrDatabaseError,
@@ -156,7 +156,7 @@ func (as *AuthService) IsUserAdmin(userID uint) bool {
 		return false
 	}
 
-	user, err := as.repos.User.FindByID(userID)
+	user, err := as.userRepo.FindByID(userID)
 	if err != nil {
 		log.Printf("❌ 사용자 권한 확인 실패 (ID: %d): %v", userID, err)
 		return false

@@ -11,35 +11,24 @@ import (
 
 // KeyService SSH 키 관리 서비스
 type KeyService struct {
-	repos *repository.Repositories
+	keyRepo    *repository.SSHKeyRepository
+	deployRepo *repository.DeploymentRepository
 }
 
-// NewKeyService 키 서비스 생성자
-func NewKeyService(repos *repository.Repositories) *KeyService {
-	return &KeyService{repos: repos}
+// NewKeyService 키 서비스 생성자 (직접 의존성 주입)
+func NewKeyService(keyRepo *repository.SSHKeyRepository, deployRepo *repository.DeploymentRepository) *KeyService {
+	return &KeyService{
+		keyRepo:    keyRepo,
+		deployRepo: deployRepo,
+	}
 }
 
 // GenerateSSHKeyPair SSH 키 쌍 생성
 func (ks *KeyService) GenerateSSHKeyPair(userID uint) (*model.SSHKey, error) {
 	log.Printf("🔐 SSH 키 쌍 생성 시작 (사용자 ID: %d)", userID)
 
-	// 1. 사용자 존재 확인
-	exists, err := ks.repos.User.ExistsByID(userID)
-	if err != nil {
-		return nil, model.NewBusinessError(
-			model.ErrDatabaseError,
-			"사용자 확인 중 오류가 발생했습니다",
-		)
-	}
-	if !exists {
-		return nil, model.NewBusinessError(
-			model.ErrUserNotFound,
-			"사용자를 찾을 수 없습니다",
-		)
-	}
-
-	// 2. 사용자 정보 조회
-	user, err := ks.repos.User.FindByID(userID)
+	// 1. 사용자 정보 조회
+	user, err := C().User.userRepo.FindByID(userID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, model.NewBusinessError(
@@ -53,7 +42,7 @@ func (ks *KeyService) GenerateSSHKeyPair(userID uint) (*model.SSHKey, error) {
 		)
 	}
 
-	// 3. 키 생성
+	// 2. 키 생성
 	keyPair, err := util.GenerateSSHKeyPair(4096, user.Username)
 	if err != nil {
 		log.Printf("❌ SSH 키 생성 실패: %v", err)
@@ -64,19 +53,16 @@ func (ks *KeyService) GenerateSSHKeyPair(userID uint) (*model.SSHKey, error) {
 		)
 	}
 
-	// 4. 키 모델 생성
+	// 3. 키 모델 생성 (핵심 필드만)
 	sshKey := &model.SSHKey{
 		UserID:     userID,
-		Algorithm:  keyPair.Algorithm,
-		Bits:       keyPair.Bits,
 		PrivateKey: string(keyPair.PrivateKeyPEM),
 		PublicKey:  string(keyPair.PublicKeySSH),
-		PEM:        string(keyPair.PrivateKeyPEM),
 		PPK:        string(keyPair.PPKKey),
 	}
 
-	// 5. 데이터베이스에 저장 (기존 키 교체)
-	if err := ks.repos.SSHKey.ReplaceUserKey(userID, sshKey); err != nil {
+	// 4. 데이터베이스에 저장 (기존 키 교체)
+	if err := ks.keyRepo.ReplaceUserKey(userID, sshKey); err != nil {
 		log.Printf("❌ SSH 키 저장 실패: %v", err)
 		return nil, model.NewBusinessError(
 			model.ErrDatabaseError,
@@ -98,7 +84,7 @@ func (ks *KeyService) GetUserSSHKey(userID uint) (*model.SSHKey, error) {
 		)
 	}
 
-	key, err := ks.repos.SSHKey.FindByUserID(userID)
+	key, err := ks.keyRepo.FindByUserID(userID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, model.NewSSHKeyNotFoundError()
@@ -116,38 +102,25 @@ func (ks *KeyService) GetUserSSHKey(userID uint) (*model.SSHKey, error) {
 func (ks *KeyService) DeleteUserSSHKey(userID uint) error {
 	log.Printf("🗑️ SSH 키 삭제 시작 (사용자 ID: %d)", userID)
 
-	// 사용자 존재 확인
-	exists, err := ks.repos.User.ExistsByID(userID)
-	if err != nil {
-		return model.NewBusinessError(
-			model.ErrDatabaseError,
-			"사용자 확인 중 오류가 발생했습니다",
-		)
-	}
-	if !exists {
-		return model.NewBusinessError(
-			model.ErrUserNotFound,
-			"사용자를 찾을 수 없습니다",
-		)
-	}
-
 	// 트랜잭션으로 키와 관련 데이터 삭제
-	err = ks.repos.TxManager.WithTransaction(func(tx *gorm.DB) error {
+	//err = ks.repos.TxManager.WithTransaction(func(tx *gorm.DB) error {
+	err := ks.keyRepo.GetDB().Transaction(func(tx *gorm.DB) error {
+
 		// 1. SSH 키 조회
-		key, err := ks.repos.SSHKey.FindByUserID(userID)
+		key, err := ks.keyRepo.FindByUserID(userID)
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
 
 		// 2. 배포 기록 삭제 (키가 존재하는 경우)
 		if err == nil && key != nil {
-			if err := ks.repos.Deployment.DeleteBySSHKeyID(key.ID); err != nil {
+			if err := ks.deployRepo.DeleteBySSHKeyID(key.ID); err != nil {
 				return err
 			}
 		}
 
 		// 3. SSH 키 삭제
-		return ks.repos.SSHKey.DeleteByUserID(userID)
+		return ks.keyRepo.DeleteByUserID(userID)
 	})
 
 	if err != nil {
@@ -172,7 +145,7 @@ func (ks *KeyService) HasUserSSHKey(userID uint) bool {
 		return false
 	}
 
-	exists, err := ks.repos.SSHKey.ExistsByUserID(userID)
+	exists, err := ks.keyRepo.ExistsByUserID(userID)
 	if err != nil {
 		log.Printf("❌ SSH 키 존재 확인 실패 (사용자 ID: %d): %v", userID, err)
 		return false
@@ -191,7 +164,7 @@ func (ks *KeyService) RegenerateSSHKeyPair(userID uint) (*model.SSHKey, error) {
 
 // GetSSHKeyStatistics SSH 키 통계 조회
 func (ks *KeyService) GetSSHKeyStatistics() (map[string]interface{}, error) {
-	stats, err := ks.repos.SSHKey.GetStatistics()
+	stats, err := ks.keyRepo.GetStatistics()
 	if err != nil {
 		return nil, model.NewBusinessError(
 			model.ErrDatabaseError,

@@ -18,7 +18,19 @@ func Register(c echo.Context) error {
 
 	user, err := service.C().Auth.RegisterUser(req.Username, req.Password)
 	if err != nil {
-		return HandleBusinessError(c, err)
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrUserAlreadyExists:
+				return ConflictResponse(c, "이미 사용 중인 사용자명입니다")
+			case model.ErrWeakPassword:
+				return BadRequestResponse(c, "비밀번호는 최소 4자 이상이어야 합니다")
+			case model.ErrRequiredField, model.ErrInvalidUsername:
+				return BadRequestResponse(c, be.Message)
+			default:
+				return InternalServerErrorResponse(c, "회원가입 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "회원가입 중 오류가 발생했습니다")
 	}
 
 	responseData := map[string]interface{}{
@@ -38,9 +50,7 @@ func Login(c echo.Context) error {
 
 	token, user, err := service.C().Auth.AuthenticateUser(req.Username, req.Password)
 	if err != nil {
-		if be, ok := err.(*model.BusinessError); ok {
-			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
-		}
+		// 로그인 실패는 대부분 401 Unauthorized
 		return UnauthorizedResponse(c, "사용자명 또는 비밀번호가 올바르지 않습니다")
 	}
 
@@ -72,14 +82,11 @@ func Logout(c echo.Context) error {
 func RefreshToken(c echo.Context) error {
 	userID, err := middleware.UserIDFromToken(c)
 	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
+		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
 	}
 
 	newToken, err := service.C().Auth.RefreshUserToken(userID)
 	if err != nil {
-		if be, ok := err.(*model.BusinessError); ok {
-			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
-		}
 		return InternalServerErrorResponse(c, "토큰 갱신 중 오류가 발생했습니다")
 	}
 
@@ -98,7 +105,7 @@ func ValidateToken(c echo.Context) error {
 
 	user, err := service.C().User.GetUserByID(userID)
 	if err != nil {
-		return HandleBusinessError(c, err)
+		return NotFoundResponse(c, "사용자를 찾을 수 없습니다")
 	}
 
 	responseData := map[string]interface{}{
@@ -109,31 +116,4 @@ func ValidateToken(c echo.Context) error {
 	}
 
 	return SuccessResponse(c, responseData)
-}
-
-// mapBusinessErrorToHTTPStatus는 비즈니스 에러를 HTTP 상태 코드로 매핑합니다.
-func mapBusinessErrorToHTTPStatus(code model.ErrorCode) int {
-	switch code {
-	case model.ErrInvalidCredentials, model.ErrTokenExpired, model.ErrInvalidToken, model.ErrInvalidJWT:
-		return 401
-	case model.ErrPermissionDenied:
-		return 403
-	case model.ErrUserNotFound, model.ErrServerNotFound, model.ErrSSHKeyNotFound, model.ErrDepartmentNotFound:
-		return 404
-	case model.ErrUserAlreadyExists, model.ErrServerExists, model.ErrDepartmentExists, model.ErrSSHKeyExists:
-		return 409
-	case model.ErrValidationFailed, model.ErrInvalidInput, model.ErrWeakPassword, model.ErrRequiredField,
-		model.ErrInvalidFormat, model.ErrInvalidRange, model.ErrInvalidUsername, model.ErrInvalidServerID,
-		model.ErrInvalidDeptID, model.ErrCannotDeleteSelf, model.ErrLastAdmin, model.ErrDepartmentHasUsers,
-		model.ErrDepartmentHasChild, model.ErrInvalidParentDept, model.ErrServerNotOwned, model.ErrInvalidSSHKey:
-		return 400
-	case model.ErrConnectionFailed:
-		return 502
-	case model.ErrSSHKeyGeneration, model.ErrSSHKeyDeployment:
-		return 500
-	case model.ErrInternalServer, model.ErrDatabaseError, model.ErrConfigError, model.ErrFileSystemError:
-		return 500
-	default:
-		return 400
-	}
 }

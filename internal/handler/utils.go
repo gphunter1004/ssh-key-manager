@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"ssh-key-manager/internal/middleware"
-	"ssh-key-manager/internal/model"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -75,14 +74,6 @@ func LogAdminAction(action string, adminID, targetID uint, details ...interface{
 // LogAdminError는 관리자 액션 에러 로그를 출력합니다.
 func LogAdminError(action string, adminID, targetID uint, err error) {
 	log.Printf("❌ %s 실패 (관리자 ID: %d, 대상 ID: %d): %v", action, adminID, targetID, err)
-}
-
-// HandleBusinessError는 비즈니스 에러를 적절한 HTTP 응답으로 변환합니다.
-func HandleBusinessError(c echo.Context, err error) error {
-	if be, ok := err.(*model.BusinessError); ok {
-		return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
-	}
-	return InternalServerErrorResponse(c, err.Error())
 }
 
 // ValidateJSONRequest는 JSON 요청을 바인딩하고 검증합니다.

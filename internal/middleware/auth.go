@@ -3,7 +3,6 @@ package middleware
 import (
 	"fmt"
 	"log"
-	"math"
 	"net/http"
 	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/model"
@@ -37,22 +36,24 @@ func RequireAuth() echo.MiddlewareFunc {
 	}
 }
 
-// RequireAdmin는 관리자 권한을 요구하는 미들웨어입니다.
+// RequireAdmin는 JWT 검증 + 관리자 권한 확인을 통합한 미들웨어입니다.
 func RequireAdmin() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			userID, exists := c.Get("userID").(uint)
-			if !exists {
+			// 1. JWT에서 사용자 ID 추출
+			userID, err := UserIDFromToken(c)
+			if err != nil {
+				log.Printf("❌ 관리자 토큰 검증 실패: %v", err)
 				return c.JSON(http.StatusUnauthorized, dto.APIResponse{
 					Success: false,
 					Error: &model.APIError{
 						Code:    model.ErrInvalidToken,
-						Message: "인증 정보가 없습니다",
+						Message: "유효하지 않은 토큰입니다",
 					},
 				})
 			}
 
-			// 안전한 DB 접근
+			// 2. 데이터베이스에서 사용자 권한 확인
 			db, err := model.GetDB()
 			if err != nil {
 				log.Printf("❌ 데이터베이스 접근 실패: %v", err)
@@ -65,10 +66,10 @@ func RequireAdmin() echo.MiddlewareFunc {
 				})
 			}
 
-			// 사용자 권한 확인
+			// 3. 사용자 권한 확인 (role만 조회로 최적화)
 			var user model.User
 			if err := db.Select("role").First(&user, userID).Error; err != nil {
-				log.Printf("❌ 사용자 조회 실패 (ID: %d): %v", userID, err)
+				log.Printf("❌ 관리자 권한 확인 실패 (ID: %d): %v", userID, err)
 				return c.JSON(http.StatusForbidden, dto.APIResponse{
 					Success: false,
 					Error: &model.APIError{
@@ -89,6 +90,9 @@ func RequireAdmin() echo.MiddlewareFunc {
 				})
 			}
 
+			// 4. Context에 사용자 ID 저장 (핸들러에서 사용)
+			c.Set("userID", userID)
+			log.Printf("✅ 관리자 권한 확인 성공 (사용자 ID: %d)", userID)
 			return next(c)
 		}
 	}
@@ -113,134 +117,50 @@ func UserIDFromToken(c echo.Context) (uint, error) {
 
 	// JWT Token 타입 확인
 	token, ok := user.(*jwt.Token)
-	if !ok {
-		return 0, fmt.Errorf("invalid token type: expected *jwt.Token, got %T", user)
-	}
-
-	if token == nil {
-		return 0, fmt.Errorf("token is nil")
+	if !ok || token == nil {
+		return 0, fmt.Errorf("invalid token type")
 	}
 
 	// Claims 타입 확인
 	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return 0, fmt.Errorf("invalid token claims: expected jwt.MapClaims, got %T", token.Claims)
+	if !ok || claims == nil {
+		return 0, fmt.Errorf("invalid token claims")
 	}
 
-	if claims == nil {
-		return 0, fmt.Errorf("claims is nil")
-	}
-
-	// user_id 클레임 존재 확인
+	// user_id 클레임 추출
 	userIDClaim, exists := claims["user_id"]
-	if !exists {
-		return 0, fmt.Errorf("user_id not found in token claims")
+	if !exists || userIDClaim == nil {
+		return 0, fmt.Errorf("user_id not found in token")
 	}
 
-	if userIDClaim == nil {
-		return 0, fmt.Errorf("user_id claim is nil")
-	}
-
-	// 안전한 타입 변환
+	// 간단한 타입 변환 (가장 일반적인 케이스만 처리)
 	var userID uint
 	switch v := userIDClaim.(type) {
 	case float64:
-		// float64 범위 체크
-		if v < 0 {
-			return 0, fmt.Errorf("user_id cannot be negative: %f", v)
-		}
-		if v > float64(math.MaxUint32) { // uint 범위를 uint32로 제한
-			return 0, fmt.Errorf("user_id out of uint range: %f", v)
-		}
-		userID = uint(v)
-	case int:
-		if v < 0 {
-			return 0, fmt.Errorf("user_id cannot be negative: %d", v)
-		}
-		userID = uint(v)
-	case int64:
-		if v < 0 {
-			return 0, fmt.Errorf("user_id cannot be negative: %d", v)
-		}
-		if v > int64(math.MaxUint32) { // uint 범위를 uint32로 제한
-			return 0, fmt.Errorf("user_id out of uint range: %d", v)
+		if v <= 0 || v > 4294967295 { // uint32 최대값
+			return 0, fmt.Errorf("invalid user_id value: %f", v)
 		}
 		userID = uint(v)
 	case string:
-		if v == "" {
-			return 0, fmt.Errorf("user_id string is empty")
-		}
-		id, err := strconv.ParseUint(v, 10, 32) // 32비트로 제한
-		if err != nil {
-			return 0, fmt.Errorf("invalid user_id string format: %v", err)
+		id, err := strconv.ParseUint(v, 10, 32)
+		if err != nil || id == 0 {
+			return 0, fmt.Errorf("invalid user_id string: %s", v)
 		}
 		userID = uint(id)
 	default:
-		return 0, fmt.Errorf("unsupported user_id type: %T (value: %v)", v, v)
+		return 0, fmt.Errorf("unsupported user_id type: %T", v)
 	}
 
-	// userID가 0인 경우 체크
-	if userID == 0 {
-		return 0, fmt.Errorf("user_id cannot be zero")
-	}
-
-	// 토큰 만료 시간 확인
+	// 기본 토큰 만료 확인만 (JWT 라이브러리가 대부분 처리)
 	if exp, ok := claims["exp"]; ok {
-		switch expValue := exp.(type) {
-		case float64:
-			if time.Now().Unix() > int64(expValue) {
+		if expFloat, ok := exp.(float64); ok {
+			if time.Now().Unix() > int64(expFloat) {
 				return 0, fmt.Errorf("token has expired")
-			}
-		case int64:
-			if time.Now().Unix() > expValue {
-				return 0, fmt.Errorf("token has expired")
-			}
-		default:
-			log.Printf("⚠️ 예상하지 못한 exp 타입: %T", exp)
-		}
-	}
-
-	// 토큰 발급 시간 확인 (미래 토큰 방지)
-	if iat, ok := claims["iat"]; ok {
-		switch iatValue := iat.(type) {
-		case float64:
-			if time.Now().Unix() < int64(iatValue) {
-				return 0, fmt.Errorf("token issued in the future")
-			}
-		case int64:
-			if time.Now().Unix() < iatValue {
-				return 0, fmt.Errorf("token issued in the future")
 			}
 		}
 	}
 
 	return userID, nil
-}
-
-// ValidateTokenClaims는 JWT 클레임의 유효성을 검증합니다.
-func ValidateTokenClaims(claims jwt.MapClaims) error {
-	if claims == nil {
-		return fmt.Errorf("claims is nil")
-	}
-
-	// 필수 클레임 확인
-	requiredClaims := []string{"user_id", "exp", "iat"}
-	for _, claim := range requiredClaims {
-		if _, exists := claims[claim]; !exists {
-			return fmt.Errorf("required claim '%s' not found", claim)
-		}
-	}
-
-	// Issuer 확인 (설정된 경우)
-	if issuer, ok := claims["iss"]; ok {
-		if issuerStr, ok := issuer.(string); ok {
-			if issuerStr != "ssh-key-manager" {
-				return fmt.Errorf("invalid token issuer: %s", issuerStr)
-			}
-		}
-	}
-
-	return nil
 }
 
 // ExtractUserIDSafely는 안전한 사용자 ID 추출을 위한 헬퍼 함수입니다.

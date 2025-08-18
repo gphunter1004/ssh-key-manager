@@ -1,8 +1,6 @@
 package model
 
 import (
-	"time"
-
 	"gorm.io/gorm"
 )
 
@@ -21,15 +19,10 @@ type User struct {
 	Password string   `gorm:"not null" json:"-"`
 	Role     UserRole `gorm:"not null;default:'user'" json:"role"`
 
-	// 부서 관련 필드
-	DepartmentID *uint      `gorm:"index" json:"department_id"`
-	EmployeeID   string     `gorm:"unique;size:20" json:"employee_id"`
-	Position     string     `gorm:"size:50" json:"position"`
-	JoinDate     *time.Time `json:"join_date"`
-	Email        string     `gorm:"unique;size:100" json:"email"`
-	Phone        string     `gorm:"size:20" json:"phone"`
+	// 부서 관련 (기본 기능 유지)
+	DepartmentID *uint `gorm:"index" json:"department_id"`
 
-	// 관계
+	// 관계 (핵심 기능)
 	Department *Department `gorm:"foreignKey:DepartmentID" json:"department,omitempty"`
 	SSHKeys    []SSHKey    `gorm:"foreignKey:UserID" json:"ssh_keys,omitempty"`
 	Servers    []Server    `gorm:"foreignKey:UserID" json:"servers,omitempty"`

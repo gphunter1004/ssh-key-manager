@@ -26,14 +26,14 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 		return
 	}
 
-	// BusinessError 처리 (우선순위 높음)
+	// BusinessError 처리는 핸들러에서 직접 처리하므로 여기서는 기본 처리만
 	if be, ok := err.(*model.BusinessError); ok {
-		code = mapBusinessErrorToHTTPStatus(be.Code)
+		code = http.StatusBadRequest // 기본값
 		apiErr.Code = be.Code
 		apiErr.Message = be.Message
 		apiErr.Details = be.Details
 
-		log.Printf("비즈니스 에러: %s (코드: %s)", be.Message, string(be.Code))
+		log.Printf("⚠️ 핸들러에서 처리되지 않은 비즈니스 에러: %s (코드: %s)", be.Message, string(be.Code))
 	} else if he, ok := err.(*echo.HTTPError); ok {
 		// Echo HTTPError 처리
 		code = he.Code
@@ -89,50 +89,6 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 		Error:   apiErr,
 	}); err != nil {
 		log.Printf("에러 응답 전송 실패: %v", err)
-	}
-}
-
-// mapBusinessErrorToHTTPStatus는 비즈니스 에러를 HTTP 상태 코드로 매핑합니다.
-func mapBusinessErrorToHTTPStatus(code model.ErrorCode) int {
-	switch code {
-	// 인증 에러 (401)
-	case model.ErrInvalidCredentials, model.ErrTokenExpired, model.ErrInvalidToken, model.ErrInvalidJWT:
-		return http.StatusUnauthorized
-
-	// 권한 에러 (403)
-	case model.ErrPermissionDenied:
-		return http.StatusForbidden
-
-	// 리소스 없음 (404)
-	case model.ErrUserNotFound, model.ErrServerNotFound, model.ErrSSHKeyNotFound, model.ErrDepartmentNotFound:
-		return http.StatusNotFound
-
-	// 중복/충돌 (409)
-	case model.ErrUserAlreadyExists, model.ErrServerExists, model.ErrDepartmentExists, model.ErrSSHKeyExists:
-		return http.StatusConflict
-
-	// 검증 실패 (400)
-	case model.ErrValidationFailed, model.ErrInvalidInput, model.ErrWeakPassword, model.ErrRequiredField,
-		model.ErrInvalidFormat, model.ErrInvalidRange, model.ErrInvalidUsername, model.ErrInvalidServerID,
-		model.ErrInvalidDeptID, model.ErrCannotDeleteSelf, model.ErrLastAdmin, model.ErrDepartmentHasUsers,
-		model.ErrDepartmentHasChild, model.ErrInvalidParentDept, model.ErrServerNotOwned, model.ErrInvalidSSHKey:
-		return http.StatusBadRequest
-
-	// 서버 연결 실패 (502)
-	case model.ErrConnectionFailed:
-		return http.StatusBadGateway
-
-	// SSH 키 생성/배포 실패 (500)
-	case model.ErrSSHKeyGeneration, model.ErrSSHKeyDeployment:
-		return http.StatusInternalServerError
-
-	// 시스템 에러 (500)
-	case model.ErrInternalServer, model.ErrDatabaseError, model.ErrConfigError, model.ErrFileSystemError:
-		return http.StatusInternalServerError
-
-	// 기본값 (400)
-	default:
-		return http.StatusBadRequest
 	}
 }
 

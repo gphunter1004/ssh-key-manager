@@ -14,12 +14,16 @@ import (
 
 // ServerService 서버 관리 서비스
 type ServerService struct {
-	repos *repository.Repositories
+	serverRepo *repository.ServerRepository
+	keyRepo    *repository.SSHKeyRepository
+	deployRepo *repository.DeploymentRepository
 }
 
 // NewServerService 서버 서비스 생성자
-func NewServerService(repos *repository.Repositories) *ServerService {
-	return &ServerService{repos: repos}
+func NewServerService(serverRepo *repository.ServerRepository,
+	keyRepo *repository.SSHKeyRepository,
+	deployRepo *repository.DeploymentRepository) *ServerService {
+	return &ServerService{serverRepo: serverRepo, keyRepo: keyRepo, deployRepo: deployRepo}
 }
 
 // CreateServer 새로운 서버를 등록합니다.
@@ -31,23 +35,8 @@ func (ss *ServerService) CreateServer(userID uint, req dto.ServerCreateRequest) 
 		return nil, err
 	}
 
-	// 사용자 존재 확인
-	exists, err := ss.repos.User.ExistsByID(userID)
-	if err != nil {
-		return nil, model.NewBusinessError(
-			model.ErrDatabaseError,
-			"사용자 확인 중 오류가 발생했습니다",
-		)
-	}
-	if !exists {
-		return nil, model.NewBusinessError(
-			model.ErrUserNotFound,
-			"사용자를 찾을 수 없습니다",
-		)
-	}
-
 	// 중복 확인 (동일 사용자가 같은 호스트+포트 조합으로 등록했는지)
-	duplicate, err := ss.repos.Server.ExistsByUserAndHost(userID, req.Host, req.Port)
+	duplicate, err := ss.serverRepo.ExistsByUserAndHost(userID, req.Host, req.Port)
 	if err != nil {
 		return nil, model.NewBusinessError(
 			model.ErrDatabaseError,
@@ -71,7 +60,7 @@ func (ss *ServerService) CreateServer(userID uint, req dto.ServerCreateRequest) 
 		Status:      "active",
 	}
 
-	if err := ss.repos.Server.Create(server); err != nil {
+	if err := ss.serverRepo.Create(server); err != nil {
 		log.Printf("❌ 서버 등록 실패: %v", err)
 		return nil, model.NewBusinessError(
 			model.ErrDatabaseError,
@@ -87,22 +76,7 @@ func (ss *ServerService) CreateServer(userID uint, req dto.ServerCreateRequest) 
 func (ss *ServerService) GetUserServers(userID uint) ([]model.Server, error) {
 	log.Printf("🖥️ 사용자 서버 목록 조회 중 (사용자 ID: %d)", userID)
 
-	// 사용자 존재 확인
-	exists, err := ss.repos.User.ExistsByID(userID)
-	if err != nil {
-		return nil, model.NewBusinessError(
-			model.ErrDatabaseError,
-			"사용자 확인 중 오류가 발생했습니다",
-		)
-	}
-	if !exists {
-		return nil, model.NewBusinessError(
-			model.ErrUserNotFound,
-			"사용자를 찾을 수 없습니다",
-		)
-	}
-
-	servers, err := ss.repos.Server.FindByUserID(userID)
+	servers, err := ss.serverRepo.FindByUserID(userID)
 	if err != nil {
 		log.Printf("❌ 서버 목록 조회 실패: %v", err)
 		return nil, model.NewBusinessError(
@@ -119,7 +93,7 @@ func (ss *ServerService) GetUserServers(userID uint) ([]model.Server, error) {
 func (ss *ServerService) GetServerByID(userID, serverID uint) (*model.Server, error) {
 	log.Printf("🔍 서버 상세 정보 조회 중 (서버 ID: %d)", serverID)
 
-	server, err := ss.repos.Server.FindByID(serverID)
+	server, err := ss.serverRepo.FindByID(serverID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, model.NewBusinessError(
@@ -185,7 +159,7 @@ func (ss *ServerService) UpdateServer(userID, serverID uint, req dto.ServerUpdat
 
 	// 업데이트 실행
 	if len(updates) > 0 {
-		if err := ss.repos.Server.Update(serverID, updates); err != nil {
+		if err := ss.serverRepo.Update(serverID, updates); err != nil {
 			log.Printf("❌ 서버 업데이트 실패: %v", err)
 			return nil, model.NewBusinessError(
 				model.ErrDatabaseError,
@@ -194,7 +168,7 @@ func (ss *ServerService) UpdateServer(userID, serverID uint, req dto.ServerUpdat
 		}
 
 		// 업데이트된 서버 정보 다시 조회
-		server, err = ss.repos.Server.FindByID(serverID)
+		server, err = ss.serverRepo.FindByID(serverID)
 		if err != nil {
 			return nil, model.NewBusinessError(
 				model.ErrDatabaseError,
@@ -218,14 +192,14 @@ func (ss *ServerService) DeleteServer(userID, serverID uint) error {
 	}
 
 	// 트랜잭션으로 관련 데이터 함께 삭제
-	err = ss.repos.TxManager.WithTransaction(func(tx *gorm.DB) error {
+	err = ss.serverRepo.GetDB().Transaction(func(tx *gorm.DB) error {
 		// 관련된 배포 기록 삭제
-		if err := ss.repos.Deployment.DeleteByServerID(serverID); err != nil {
+		if err := ss.deployRepo.DeleteByServerID(serverID); err != nil {
 			return err
 		}
 
 		// 서버 삭제
-		return ss.repos.Server.Delete(serverID)
+		return ss.serverRepo.Delete(serverID)
 	})
 
 	if err != nil {
@@ -280,7 +254,7 @@ func (ss *ServerService) DeployKeyToServers(userID uint, req dto.KeyDeploymentRe
 	log.Printf("🚀 SSH 키 배포 시작 (사용자 ID: %d, 서버 수: %d)", userID, len(req.ServerIDs))
 
 	// 사용자의 SSH 키 조회
-	sshKey, err := ss.repos.SSHKey.FindByUserID(userID)
+	sshKey, err := ss.keyRepo.FindByUserID(userID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, model.NewBusinessError(
@@ -329,7 +303,7 @@ func (ss *ServerService) DeployKeyToServers(userID uint, req dto.KeyDeploymentRe
 			UserID:   userID,
 			Status:   "pending",
 		}
-		ss.repos.Deployment.Create(deployment)
+		ss.deployRepo.Create(deployment)
 
 		// 실제 키 배포 실행
 		err := util.DeploySSHKeyToServer(sshKey.PublicKey, server.Host, server.Port, server.Username)
@@ -370,7 +344,7 @@ func (ss *ServerService) DeployKeyToServers(userID uint, req dto.KeyDeploymentRe
 func (ss *ServerService) GetDeploymentHistory(userID uint) ([]map[string]interface{}, error) {
 	log.Printf("📋 배포 기록 조회 중 (사용자 ID: %d)", userID)
 
-	deployments, err := ss.repos.Deployment.FindByUserID(userID)
+	deployments, err := ss.deployRepo.FindByUserID(userID)
 	if err != nil {
 		return nil, model.NewBusinessError(
 			model.ErrDatabaseError,

@@ -4,27 +4,27 @@ import (
 	"ssh-key-manager/internal/model"
 )
 
-// DeploymentRepositoryImpl Deployment Repository 구현체
-type DeploymentRepositoryImpl struct {
+// DeploymentRepository Deployment Repository 구현체 (인터페이스 제거)
+type DeploymentRepository struct {
 	*BaseRepository
 }
 
 // NewDeploymentRepository Deployment Repository 생성자
-func NewDeploymentRepository() (DeploymentRepository, error) {
+func NewDeploymentRepository() (*DeploymentRepository, error) {
 	base, err := NewBaseRepository()
 	if err != nil {
 		return nil, err
 	}
-	return &DeploymentRepositoryImpl{BaseRepository: base}, nil
+	return &DeploymentRepository{BaseRepository: base}, nil
 }
 
 // Create 배포 기록 생성
-func (dr *DeploymentRepositoryImpl) Create(deployment *model.ServerKeyDeployment) error {
+func (dr *DeploymentRepository) Create(deployment *model.ServerKeyDeployment) error {
 	return dr.db.Create(deployment).Error
 }
 
 // FindByUserID 사용자 ID로 배포 기록 조회
-func (dr *DeploymentRepositoryImpl) FindByUserID(userID uint) ([]model.ServerKeyDeployment, error) {
+func (dr *DeploymentRepository) FindByUserID(userID uint) ([]model.ServerKeyDeployment, error) {
 	var deployments []model.ServerKeyDeployment
 	err := dr.db.Where("user_id = ?", userID).
 		Preload("Server").
@@ -35,11 +35,11 @@ func (dr *DeploymentRepositoryImpl) FindByUserID(userID uint) ([]model.ServerKey
 }
 
 // DeleteBySSHKeyID SSH 키 ID로 배포 기록 삭제
-func (dr *DeploymentRepositoryImpl) DeleteBySSHKeyID(keyID uint) error {
+func (dr *DeploymentRepository) DeleteBySSHKeyID(keyID uint) error {
 	return dr.db.Where("ssh_key_id = ?", keyID).Delete(&model.ServerKeyDeployment{}).Error
 }
 
 // DeleteByServerID 서버 ID로 배포 기록 삭제
-func (dr *DeploymentRepositoryImpl) DeleteByServerID(serverID uint) error {
+func (dr *DeploymentRepository) DeleteByServerID(serverID uint) error {
 	return dr.db.Where("server_id = ?", serverID).Delete(&model.ServerKeyDeployment{}).Error
 }

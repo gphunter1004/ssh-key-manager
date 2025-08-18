@@ -3,6 +3,7 @@ package handler
 import (
 	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/middleware"
+	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 
 	"github.com/labstack/echo/v4"
@@ -12,12 +13,20 @@ import (
 func GetCurrentUser(c echo.Context) error {
 	userID, err := middleware.UserIDFromToken(c)
 	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
+		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
 	}
 
 	user, err := service.C().User.GetUserByID(userID)
 	if err != nil {
-		return NotFoundResponse(c, err.Error())
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrUserNotFound:
+				return NotFoundResponse(c, "사용자를 찾을 수 없습니다")
+			default:
+				return InternalServerErrorResponse(c, "사용자 정보 조회 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "사용자 정보 조회 중 오류가 발생했습니다")
 	}
 
 	// SSH 키 존재 여부 확인
@@ -39,17 +48,29 @@ func GetCurrentUser(c echo.Context) error {
 func UpdateUserProfile(c echo.Context) error {
 	userID, err := middleware.UserIDFromToken(c)
 	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
+		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
 	}
 
 	var req dto.UserUpdateRequest
-	if err := c.Bind(&req); err != nil {
-		return BadRequestResponse(c, "잘못된 요청 형식입니다")
+	if err := ValidateJSONRequest(c, &req); err != nil {
+		return err
 	}
 
 	user, err := service.C().User.UpdateUserProfile(userID, req)
 	if err != nil {
-		return BadRequestResponse(c, err.Error())
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrUserNotFound:
+				return NotFoundResponse(c, "사용자를 찾을 수 없습니다")
+			case model.ErrUserAlreadyExists:
+				return ConflictResponse(c, "이미 사용 중인 사용자명입니다")
+			case model.ErrWeakPassword:
+				return BadRequestResponse(c, "비밀번호는 최소 4자 이상이어야 합니다")
+			default:
+				return InternalServerErrorResponse(c, "프로필 업데이트 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "프로필 업데이트 중 오류가 발생했습니다")
 	}
 
 	return SuccessWithMessageResponse(c, "프로필이 업데이트되었습니다", user)

@@ -24,13 +24,7 @@ var (
 	secretInitialized bool
 )
 
-// ========== JWT 관련 ==========
-
-// JWTClaims는 JWT 클레임 구조체입니다.
-type JWTClaims struct {
-	UserID uint `json:"user_id"`
-	jwt.RegisteredClaims
-}
+// ========== JWT 관련 단순화 ==========
 
 // InitializeJWTSecret은 JWT 시크릿을 초기화합니다.
 func InitializeJWTSecret(configSecret string) {
@@ -52,90 +46,28 @@ func InitializeJWTSecret(configSecret string) {
 	secretInitialized = true
 }
 
-// GetJWTSecret은 안전하게 JWT 시크릿을 반환합니다.
-func GetJWTSecret() (string, error) {
-	if !secretInitialized {
-		return "", fmt.Errorf("JWT secret not initialized")
-	}
-	if jwtSecret == "" {
-		return "", fmt.Errorf("JWT secret is empty")
-	}
-	return jwtSecret, nil
-}
-
-// generateSecureSecret은 안전한 랜덤 시크릿을 생성합니다.
-func generateSecureSecret() string {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return fmt.Sprintf("fallback-secret-%d-%d", os.Getpid(), time.Now().Unix())
-	}
-	return fmt.Sprintf("%x", bytes)
-}
-
-// GenerateJWT는 JWT 토큰을 생성합니다.
+// GenerateJWT는 JWT 토큰을 생성합니다 (단순화).
 func GenerateJWT(userID uint) (string, error) {
 	if userID == 0 {
 		return "", fmt.Errorf("userID cannot be zero")
 	}
 
-	secret, err := GetJWTSecret()
-	if err != nil {
-		return "", err
+	if !secretInitialized || jwtSecret == "" {
+		return "", fmt.Errorf("JWT secret not initialized")
 	}
 
 	now := time.Now()
-	claims := &JWTClaims{
-		UserID: userID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now.Add(-5 * time.Minute)),
-			Issuer:    "ssh-key-manager",
-			Subject:   fmt.Sprintf("user-%d", userID),
-			ID:        fmt.Sprintf("%d-%d", userID, now.Unix()),
-		},
+
+	// 단순한 클레임만 사용
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"exp":     now.Add(24 * time.Hour).Unix(), // 24시간
+		"iat":     now.Unix(),
+		"iss":     "ssh-key-manager",
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
-}
-
-// ValidateJWT는 JWT 토큰을 검증합니다.
-func ValidateJWT(tokenString string) (*JWTClaims, error) {
-	if tokenString == "" {
-		return nil, fmt.Errorf("token string is empty")
-	}
-
-	secret, err := GetJWTSecret()
-	if err != nil {
-		return nil, err
-	}
-
-	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(secret), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	claims, ok := token.Claims.(*JWTClaims)
-	if !ok || !token.Valid {
-		return nil, fmt.Errorf("invalid token")
-	}
-
-	if claims.UserID == 0 {
-		return nil, fmt.Errorf("invalid user ID in token")
-	}
-
-	if claims.Issuer != "ssh-key-manager" {
-		return nil, fmt.Errorf("invalid token issuer")
-	}
-
-	return claims, nil
+	return token.SignedString([]byte(jwtSecret))
 }
 
 // ========== 비밀번호 해싱 ==========
@@ -161,18 +93,17 @@ func CheckPasswordHash(password, hash string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
-// ========== SSH 키 생성 통합 API ==========
+// ========== SSH 키 생성 ==========
 
 // SSHKeyPair는 생성된 SSH 키 쌍을 담는 구조체입니다.
 type SSHKeyPair struct {
 	PrivateKeyPEM []byte // PEM 형식 개인키
 	PublicKeySSH  []byte // SSH authorized_keys 형식 공개키
 	PPKKey        []byte // PuTTY PPK 형식 개인키
-	Algorithm     string // 키 알고리즘 (RSA, Ed25519 등)
-	Bits          int    // 키 크기
+	// Algorithm, Bits 필드 제거 (항상 RSA 4096으로 고정)
 }
 
-// GenerateSSHKeyPair는 완전한 SSH 키 쌍을 생성합니다.
+// GenerateSSHKeyPair는 SSH 키 쌍을 생성합니다.
 func GenerateSSHKeyPair(bits int, comment string) (*SSHKeyPair, error) {
 	// 기본값 설정
 	if bits <= 0 {
@@ -186,24 +117,30 @@ func GenerateSSHKeyPair(bits int, comment string) (*SSHKeyPair, error) {
 	comment = sanitizeComment(comment)
 
 	// RSA 키 생성
-	privateKey, err := generateRSAPrivateKey(bits)
+	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate RSA key: %v", err)
 	}
 
 	// PEM 형식 개인키
-	pemKey, err := encodePrivateKeyToPEM(privateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode PEM: %v", err)
+	privKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	privBlock := pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privKeyBytes,
 	}
+	pemKey := pem.EncodeToMemory(&privBlock)
 
 	// SSH 공개키
-	publicKey, err := generateSSHPublicKey(privateKey, comment)
+	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate SSH public key: %v", err)
+		return nil, fmt.Errorf("failed to create SSH public key: %v", err)
 	}
 
-	// PPK 형식
+	authorizedKey := ssh.MarshalAuthorizedKey(publicRsaKey)
+	keyStr := strings.TrimSuffix(string(authorizedKey), "\n")
+	publicKey := []byte(keyStr + " " + comment + "\n")
+
+	// PPK 형식 생성
 	ppkKey, err := generatePPKKey(privateKey, comment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate PPK: %v", err)
@@ -213,86 +150,11 @@ func GenerateSSHKeyPair(bits int, comment string) (*SSHKeyPair, error) {
 		PrivateKeyPEM: pemKey,
 		PublicKeySSH:  publicKey,
 		PPKKey:        ppkKey,
-		Algorithm:     "RSA",
-		Bits:          bits,
 	}, nil
-}
-
-// ========== 내부 헬퍼 함수들 ==========
-
-// generateRSAPrivateKey는 RSA 개인키를 생성합니다.
-func generateRSAPrivateKey(bits int) (*rsa.PrivateKey, error) {
-	if bits < 2048 {
-		return nil, fmt.Errorf("key size too small: minimum 2048 bits required")
-	}
-	if bits > 8192 {
-		return nil, fmt.Errorf("key size too large: maximum 8192 bits allowed")
-	}
-
-	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := privateKey.Validate(); err != nil {
-		return nil, fmt.Errorf("generated key is invalid: %v", err)
-	}
-
-	return privateKey, nil
-}
-
-// encodePrivateKeyToPEM은 개인키를 PEM 형식으로 인코딩합니다.
-func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) ([]byte, error) {
-	if privateKey == nil {
-		return nil, fmt.Errorf("private key is nil")
-	}
-
-	if err := privateKey.Validate(); err != nil {
-		return nil, fmt.Errorf("private key validation failed: %v", err)
-	}
-
-	privKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
-	privBlock := pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: privKeyBytes,
-	}
-
-	pemBytes := pem.EncodeToMemory(&privBlock)
-	if pemBytes == nil {
-		return nil, fmt.Errorf("failed to encode private key to PEM")
-	}
-
-	return pemBytes, nil
-}
-
-// generateSSHPublicKey는 SSH 공개키를 생성합니다.
-func generateSSHPublicKey(privateKey *rsa.PrivateKey, comment string) ([]byte, error) {
-	if privateKey == nil {
-		return nil, fmt.Errorf("private key is nil")
-	}
-
-	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SSH public key: %v", err)
-	}
-
-	authorizedKey := ssh.MarshalAuthorizedKey(publicRsaKey)
-	if len(authorizedKey) == 0 {
-		return nil, fmt.Errorf("failed to marshal public key")
-	}
-
-	keyStr := strings.TrimSuffix(string(authorizedKey), "\n")
-	finalKey := []byte(keyStr + " " + comment + "\n")
-
-	return finalKey, nil
 }
 
 // generatePPKKey는 PuTTY PPK 형식 키를 생성합니다.
 func generatePPKKey(privateKey *rsa.PrivateKey, comment string) ([]byte, error) {
-	if privateKey == nil {
-		return nil, fmt.Errorf("private key is nil")
-	}
-
 	// SSH 공개키 생성
 	sshPublicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
@@ -407,4 +269,15 @@ func sanitizeComment(comment string) string {
 		}
 		return -1
 	}, comment)
+}
+
+// ========== 내부 헬퍼 함수들 ==========
+
+// generateSecureSecret은 안전한 랜덤 시크릿을 생성합니다.
+func generateSecureSecret() string {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return fmt.Sprintf("fallback-secret-%d-%d", os.Getpid(), time.Now().Unix())
+	}
+	return fmt.Sprintf("%x", bytes)
 }

@@ -4,6 +4,7 @@ import (
 	"log"
 	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/middleware"
+	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
 	"strconv"
 
@@ -23,7 +24,19 @@ func CreateServer(c echo.Context) error {
 	server, err := service.C().Server.CreateServer(userID, req)
 	if err != nil {
 		LogError("서버 등록", userID, err)
-		return HandleBusinessError(c, err)
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrServerExists:
+				return ConflictResponse(c, "이미 등록된 서버입니다")
+			case model.ErrUserNotFound:
+				return NotFoundResponse(c, "사용자를 찾을 수 없습니다")
+			case model.ErrRequiredField:
+				return BadRequestResponse(c, be.Message)
+			default:
+				return InternalServerErrorResponse(c, "서버 등록 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "서버 등록 중 오류가 발생했습니다")
 	}
 
 	LogSuccess("서버 등록", userID, server.Name)
@@ -34,13 +47,21 @@ func CreateServer(c echo.Context) error {
 func GetServers(c echo.Context) error {
 	userID, err := middleware.UserIDFromToken(c)
 	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
+		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
 	}
 
 	servers, err := service.C().Server.GetUserServers(userID)
 	if err != nil {
 		log.Printf("❌ 서버 목록 조회 실패 (사용자 ID: %d): %v", userID, err)
-		return InternalServerErrorResponse(c, err.Error())
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrUserNotFound:
+				return NotFoundResponse(c, "사용자를 찾을 수 없습니다")
+			default:
+				return InternalServerErrorResponse(c, "서버 목록 조회 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "서버 목록 조회 중 오류가 발생했습니다")
 	}
 
 	return SuccessResponse(c, servers)
@@ -58,7 +79,17 @@ func GetServer(c echo.Context) error {
 	server, err := service.C().Server.GetServerByID(userID, serverID)
 	if err != nil {
 		LogError("서버 조회", userID, err)
-		return HandleBusinessError(c, err)
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrServerNotFound:
+				return NotFoundResponse(c, "서버를 찾을 수 없습니다")
+			case model.ErrPermissionDenied:
+				return ForbiddenResponse(c, "해당 서버에 접근할 권한이 없습니다")
+			default:
+				return InternalServerErrorResponse(c, "서버 조회 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "서버 조회 중 오류가 발생했습니다")
 	}
 
 	return SuccessResponse(c, server)
@@ -78,14 +109,26 @@ func UpdateServer(c echo.Context) error {
 	}
 
 	var req dto.ServerUpdateRequest
-	if err := c.Bind(&req); err != nil {
-		return BadRequestResponse(c, "잘못된 요청 형식입니다")
+	if err := ValidateJSONRequest(c, &req); err != nil {
+		return err
 	}
 
 	server, err := service.C().Server.UpdateServer(userID, uint(serverID), req)
 	if err != nil {
 		log.Printf("❌ 서버 수정 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
-		return BadRequestResponse(c, err.Error())
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrServerNotFound:
+				return NotFoundResponse(c, "서버를 찾을 수 없습니다")
+			case model.ErrPermissionDenied:
+				return ForbiddenResponse(c, "해당 서버에 접근할 권한이 없습니다")
+			case model.ErrInvalidInput:
+				return BadRequestResponse(c, be.Message)
+			default:
+				return InternalServerErrorResponse(c, "서버 수정 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "서버 수정 중 오류가 발생했습니다")
 	}
 
 	return SuccessWithMessageResponse(c, "서버 정보가 업데이트되었습니다", server)
@@ -95,7 +138,7 @@ func UpdateServer(c echo.Context) error {
 func DeleteServer(c echo.Context) error {
 	userID, err := middleware.UserIDFromToken(c)
 	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
+		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
 	}
 
 	serverIDParam := c.Param("id")
@@ -107,7 +150,17 @@ func DeleteServer(c echo.Context) error {
 	err = service.C().Server.DeleteServer(userID, uint(serverID))
 	if err != nil {
 		log.Printf("❌ 서버 삭제 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
-		return NotFoundResponse(c, err.Error())
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrServerNotFound:
+				return NotFoundResponse(c, "서버를 찾을 수 없습니다")
+			case model.ErrPermissionDenied:
+				return ForbiddenResponse(c, "해당 서버에 접근할 권한이 없습니다")
+			default:
+				return InternalServerErrorResponse(c, "서버 삭제 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "서버 삭제 중 오류가 발생했습니다")
 	}
 
 	log.Printf("✅ 서버 삭제 성공 (사용자 ID: %d, 서버 ID: %d)", userID, serverID)
@@ -118,7 +171,7 @@ func DeleteServer(c echo.Context) error {
 func TestServerConnection(c echo.Context) error {
 	userID, err := middleware.UserIDFromToken(c)
 	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
+		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
 	}
 
 	serverIDParam := c.Param("id")
@@ -130,7 +183,19 @@ func TestServerConnection(c echo.Context) error {
 	result, err := service.C().Server.TestServerConnection(userID, uint(serverID))
 	if err != nil {
 		log.Printf("❌ 서버 연결 테스트 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
-		return BadRequestResponse(c, err.Error())
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrServerNotFound:
+				return NotFoundResponse(c, "서버를 찾을 수 없습니다")
+			case model.ErrPermissionDenied:
+				return ForbiddenResponse(c, "해당 서버에 접근할 권한이 없습니다")
+			case model.ErrConnectionFailed:
+				return BadRequestResponse(c, "서버 연결에 실패했습니다")
+			default:
+				return InternalServerErrorResponse(c, "연결 테스트 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "연결 테스트 중 오류가 발생했습니다")
 	}
 
 	return SuccessResponse(c, result)
@@ -140,12 +205,12 @@ func TestServerConnection(c echo.Context) error {
 func DeployKeyToServers(c echo.Context) error {
 	userID, err := middleware.UserIDFromToken(c)
 	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
+		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
 	}
 
 	var req dto.KeyDeploymentRequest
-	if err := c.Bind(&req); err != nil {
-		return BadRequestResponse(c, "잘못된 요청 형식입니다")
+	if err := ValidateJSONRequest(c, &req); err != nil {
+		return err
 	}
 
 	if len(req.ServerIDs) == 0 {
@@ -155,7 +220,17 @@ func DeployKeyToServers(c echo.Context) error {
 	results, err := service.C().Server.DeployKeyToServers(userID, req)
 	if err != nil {
 		log.Printf("❌ 키 배포 실패 (사용자 ID: %d): %v", userID, err)
-		return BadRequestResponse(c, err.Error())
+		if be, ok := err.(*model.BusinessError); ok {
+			switch be.Code {
+			case model.ErrSSHKeyNotFound:
+				return BadRequestResponse(c, "SSH 키를 찾을 수 없습니다. 먼저 키를 생성해주세요")
+			case model.ErrServerNotFound:
+				return NotFoundResponse(c, "배포할 수 있는 서버를 찾을 수 없습니다")
+			default:
+				return InternalServerErrorResponse(c, "키 배포 중 오류가 발생했습니다")
+			}
+		}
+		return InternalServerErrorResponse(c, "키 배포 중 오류가 발생했습니다")
 	}
 
 	// 성공/실패 카운트
@@ -188,13 +263,13 @@ func DeployKeyToServers(c echo.Context) error {
 func GetDeploymentHistory(c echo.Context) error {
 	userID, err := middleware.UserIDFromToken(c)
 	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
+		return UnauthorizedResponse(c, "유효하지 않은 토큰입니다")
 	}
 
 	history, err := service.C().Server.GetDeploymentHistory(userID)
 	if err != nil {
 		log.Printf("❌ 배포 기록 조회 실패 (사용자 ID: %d): %v", userID, err)
-		return InternalServerErrorResponse(c, err.Error())
+		return InternalServerErrorResponse(c, "배포 기록 조회 중 오류가 발생했습니다")
 	}
 
 	return SuccessResponse(c, history)
