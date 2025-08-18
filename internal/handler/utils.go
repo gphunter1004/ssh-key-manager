@@ -14,7 +14,7 @@ func GetUserID(c echo.Context) (uint, error) {
 	return middleware.GetUserID(c)
 }
 
-// ParseIDParam은 URL 파라미터에서 ID를 추출하고 검증합니다.
+// ParseIDParam은 URL 파라미터에서 ID를 추출하고 검증합니다 (표준적인 방법).
 func ParseIDParam(c echo.Context, paramName string) (uint, error) {
 	param := c.Param(paramName)
 	if param == "" {
@@ -35,17 +35,22 @@ func ParseIDParam(c echo.Context, paramName string) (uint, error) {
 
 // ParseUserIDParam은 사용자 ID 파라미터를 추출합니다.
 func ParseUserIDParam(c echo.Context) (uint, error) {
-	return ParseIDParam(c, "사용자")
+	return ParseIDParam(c, "id")
 }
 
 // ParseServerIDParam은 서버 ID 파라미터를 추출합니다.
 func ParseServerIDParam(c echo.Context) (uint, error) {
-	return ParseIDParam(c, "서버")
+	return ParseIDParam(c, "id")
 }
 
 // ParseDepartmentIDParam은 부서 ID 파라미터를 추출합니다.
 func ParseDepartmentIDParam(c echo.Context) (uint, error) {
-	return ParseIDParam(c, "부서")
+	return ParseIDParam(c, "id")
+}
+
+// ParseTargetUserIDParam은 관리자용 라우트에서 대상 사용자 ID를 추출합니다.
+func ParseTargetUserIDParam(c echo.Context) (uint, error) {
+	return ParseIDParam(c, "id")
 }
 
 // LogSuccess는 성공 로그를 출력합니다.

@@ -3,7 +3,6 @@ package handler
 import (
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -22,15 +21,14 @@ func GetDepartments(c echo.Context) error {
 
 // GetDepartment는 특정 부서의 상세 정보를 조회합니다.
 func GetDepartment(c echo.Context) error {
-	// URL 파라미터에서 부서 ID 추출
-	deptIDParam := c.Param("id")
-	deptID, err := strconv.ParseUint(deptIDParam, 10, 32)
+	// 표준적인 방법으로 URL 파라미터에서 부서 ID 추출
+	deptID, err := ParseDepartmentIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 부서 ID입니다")
+		return BadRequestResponse(c, err.Error())
 	}
 
 	// 부서 상세 정보 조회
-	department, err := service.C().Department.GetDepartmentByID(uint(deptID))
+	department, err := service.C().Department.GetDepartmentByID(deptID)
 	if err != nil {
 		if be, ok := err.(*model.BusinessError); ok {
 			switch be.Code {
@@ -44,7 +42,7 @@ func GetDepartment(c echo.Context) error {
 	}
 
 	// 부서 사용자 수 조회
-	users, err := service.C().Department.GetDepartmentUsers(uint(deptID))
+	users, err := service.C().Department.GetDepartmentUsers(deptID)
 	if err != nil {
 		return InternalServerErrorResponse(c, "부서 사용자 조회 실패")
 	}

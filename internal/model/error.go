@@ -10,6 +10,8 @@ const (
 	ErrInvalidToken       ErrorCode = "AUTH_INVALID_TOKEN"
 	ErrPermissionDenied   ErrorCode = "AUTH_PERMISSION_DENIED"
 	ErrInvalidJWT         ErrorCode = "AUTH_INVALID_JWT"
+	ErrAccountInactive    ErrorCode = "AUTH_ACCOUNT_INACTIVE" // 계정 비활성화
+	ErrAccountLocked      ErrorCode = "AUTH_ACCOUNT_LOCKED"   // 계정 잠금
 
 	// 사용자 관련 에러 (USER_xxx)
 	ErrUserNotFound      ErrorCode = "USER_NOT_FOUND"
@@ -100,6 +102,14 @@ func NewInvalidCredentialsError() *BusinessError {
 
 func NewPermissionDeniedError() *BusinessError {
 	return NewBusinessError(ErrPermissionDenied, "권한이 없습니다")
+}
+
+func NewAccountInactiveError() *BusinessError {
+	return NewBusinessError(ErrAccountInactive, "비활성화된 계정입니다")
+}
+
+func NewAccountLockedError() *BusinessError {
+	return NewBusinessError(ErrAccountLocked, "잠긴 계정입니다")
 }
 
 func NewSSHKeyNotFoundError() *BusinessError {

@@ -5,7 +5,6 @@ import (
 	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -66,6 +65,7 @@ func GetServers(c echo.Context) error {
 func GetServer(c echo.Context) error {
 	userID, _ := GetUserID(c)
 
+	// 표준적인 방법으로 URL 파라미터에서 서버 ID 추출
 	serverID, err := ParseServerIDParam(c)
 	if err != nil {
 		return BadRequestResponse(c, err.Error())
@@ -94,10 +94,10 @@ func GetServer(c echo.Context) error {
 func UpdateServer(c echo.Context) error {
 	userID, _ := GetUserID(c)
 
-	serverIDParam := c.Param("id")
-	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
+	// 표준적인 방법으로 URL 파라미터에서 서버 ID 추출
+	serverID, err := ParseServerIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
+		return BadRequestResponse(c, err.Error())
 	}
 
 	var req dto.ServerUpdateRequest
@@ -105,7 +105,7 @@ func UpdateServer(c echo.Context) error {
 		return err
 	}
 
-	server, err := service.C().Server.UpdateServer(userID, uint(serverID), req)
+	server, err := service.C().Server.UpdateServer(userID, serverID, req)
 	if err != nil {
 		log.Printf("❌ 서버 수정 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
 		if be, ok := err.(*model.BusinessError); ok {
@@ -130,13 +130,13 @@ func UpdateServer(c echo.Context) error {
 func DeleteServer(c echo.Context) error {
 	userID, _ := GetUserID(c)
 
-	serverIDParam := c.Param("id")
-	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
+	// 표준적인 방법으로 URL 파라미터에서 서버 ID 추출
+	serverID, err := ParseServerIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
+		return BadRequestResponse(c, err.Error())
 	}
 
-	err = service.C().Server.DeleteServer(userID, uint(serverID))
+	err = service.C().Server.DeleteServer(userID, serverID)
 	if err != nil {
 		log.Printf("❌ 서버 삭제 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
 		if be, ok := err.(*model.BusinessError); ok {
@@ -160,13 +160,13 @@ func DeleteServer(c echo.Context) error {
 func TestServerConnection(c echo.Context) error {
 	userID, _ := GetUserID(c)
 
-	serverIDParam := c.Param("id")
-	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
+	// 표준적인 방법으로 URL 파라미터에서 서버 ID 추출
+	serverID, err := ParseServerIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
+		return BadRequestResponse(c, err.Error())
 	}
 
-	result, err := service.C().Server.TestServerConnection(userID, uint(serverID))
+	result, err := service.C().Server.TestServerConnection(userID, serverID)
 	if err != nil {
 		log.Printf("❌ 서버 연결 테스트 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
 		if be, ok := err.(*model.BusinessError); ok {

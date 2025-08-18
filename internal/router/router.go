@@ -62,18 +62,20 @@ func setupPublicRoutes(api *echo.Group) {
 // setupAuthenticatedRoutes는 인증이 필요한 라우트를 설정합니다.
 func setupAuthenticatedRoutes(api *echo.Group, jwtConfig echojwt.Config) {
 	auth := api.Group("")
-	auth.Use(echojwt.WithConfig(jwtConfig))
+	auth.Use(echojwt.WithConfig(jwtConfig)) // JWT 토큰 검증
+	auth.Use(middleware.RequireAuth())      // ✅ 사용자 ID를 Context에 저장
 
 	// 인증 관련
 	auth.GET("/validate", handler.ValidateToken)
 	auth.POST("/refresh", handler.RefreshToken)
 	auth.POST("/logout", handler.Logout)
 
-	// SSH 키 관리
+	// SSH 키 관리 (일반 사용자용)
 	keys := auth.Group("/keys")
-	keys.POST("", handler.CreateKey)
-	keys.GET("", handler.GetKey)
-	keys.DELETE("", handler.DeleteKey)
+	keys.POST("", handler.CreateKey)                // 자신의 키 생성
+	keys.GET("", handler.GetKey)                    // 자신의 키 조회
+	keys.DELETE("", handler.DeleteKey)              // 자신의 키 삭제
+	keys.POST("/regenerate", handler.RegenerateKey) // 자신의 키 재생성
 
 	// 사용자 관리
 	users := auth.Group("/users")
@@ -83,7 +85,6 @@ func setupAuthenticatedRoutes(api *echo.Group, jwtConfig echojwt.Config) {
 	// 부서 관리 (기본 조회는 인증된 사용자도 가능)
 	departments := auth.Group("/departments")
 	departments.GET("", handler.GetDepartments)
-	// departments.GET("/tree", handler.GetDepartmentTree)  // 복잡한 트리 기능 제거
 	departments.GET("/:id", handler.GetDepartment)
 
 	// 서버 관리
@@ -101,15 +102,22 @@ func setupAuthenticatedRoutes(api *echo.Group, jwtConfig echojwt.Config) {
 // setupAdminRoutes는 관리자 전용 라우트를 설정합니다.
 func setupAdminRoutes(api *echo.Group, jwtConfig echojwt.Config) {
 	admin := api.Group("/admin")
-	// JWT 검증 + 관리자 권한 확인을 한번에 처리 (통합 미들웨어 사용)
-	admin.Use(echojwt.WithConfig(jwtConfig))
-	admin.Use(middleware.RequireAdmin()) // ✅ 관리자 미들웨어 활성화
+	// JWT 검증 + 관리자 권한 확인을 한번에 처리 (표준적인 미들웨어 사용)
+	admin.Use(echojwt.WithConfig(jwtConfig)) // JWT 토큰 검증
+	admin.Use(middleware.RequireAdmin())     // ✅ 관리자 권한 확인 + userID 저장
 
 	// 사용자 관리 (관리자용)
 	admin.GET("/users", handler.GetAllUsers)
 	admin.GET("/users/:id", handler.GetUserDetail)
 	admin.PUT("/users/:id/role", handler.UpdateUserRole)
 	admin.DELETE("/users/:id", handler.DeleteUser)
+
+	// SSH 키 관리 (관리자용 - 다른 사용자의 키 관리)
+	adminKeys := admin.Group("/users/:id/keys")
+	adminKeys.POST("", handler.CreateKeyForUser)             // 특정 사용자의 키 생성
+	adminKeys.GET("", handler.GetUserKey)                    // 특정 사용자의 키 조회
+	adminKeys.DELETE("", handler.DeleteUserKey)              // 특정 사용자의 키 삭제
+	adminKeys.POST("/regenerate", handler.RegenerateUserKey) // 특정 사용자의 키 재생성
 
 	// 부서 관리 (관리자용)
 	admin.POST("/departments", handler.CreateDepartment)

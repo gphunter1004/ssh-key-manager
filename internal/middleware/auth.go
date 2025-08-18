@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// RequireAuth는 인증을 요구하고 사용자 ID를 Context에 저장하는 미들웨어입니다.
+// RequireAuth는 JWT 검증 후 사용자 ID를 Context에 저장하는 미들웨어입니다.
 func RequireAuth() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -29,7 +29,7 @@ func RequireAuth() echo.MiddlewareFunc {
 				})
 			}
 
-			// Context에 사용자 ID 저장
+			// Context에 사용자 ID 저장 (핸들러에서 사용)
 			c.Set("userID", userID)
 			return next(c)
 		}
@@ -161,15 +161,4 @@ func UserIDFromToken(c echo.Context) (uint, error) {
 	}
 
 	return userID, nil
-}
-
-// ExtractUserIDSafely는 안전한 사용자 ID 추출을 위한 헬퍼 함수입니다.
-func ExtractUserIDSafely(c echo.Context) (uint, error) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("🚨 UserIDFromToken에서 panic 복구: %v", r)
-		}
-	}()
-
-	return UserIDFromToken(c)
 }

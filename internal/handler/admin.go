@@ -6,7 +6,6 @@ import (
 	"ssh-key-manager/internal/dto"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -28,16 +27,15 @@ func GetAllUsers(c echo.Context) error {
 func GetUserDetail(c echo.Context) error {
 	adminUserID, _ := GetUserID(c)
 
-	// URL 파라미터에서 사용자 ID 추출
-	userIDParam := c.Param("id")
-	userID, err := strconv.ParseUint(userIDParam, 10, 32)
+	// 표준적인 방법으로 URL 파라미터에서 사용자 ID 추출
+	targetUserID, err := ParseUserIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 사용자 ID입니다")
+		return BadRequestResponse(c, err.Error())
 	}
 
-	userDetail, err := service.C().User.GetUserDetailWithKey(uint(userID))
+	userDetail, err := service.C().User.GetUserDetailWithKey(targetUserID)
 	if err != nil {
-		log.Printf("❌ 사용자 상세 조회 실패 (관리자 ID: %d, 대상 ID: %d): %v", adminUserID, userID, err)
+		log.Printf("❌ 사용자 상세 조회 실패 (관리자 ID: %d, 대상 ID: %d): %v", adminUserID, targetUserID, err)
 		if be, ok := err.(*model.BusinessError); ok {
 			switch be.Code {
 			case model.ErrUserNotFound:
@@ -56,6 +54,7 @@ func GetUserDetail(c echo.Context) error {
 func UpdateUserRole(c echo.Context) error {
 	adminUserID, _ := GetUserID(c)
 
+	// 표준적인 방법으로 URL 파라미터에서 사용자 ID 추출
 	targetUserID, err := ParseUserIDParam(c)
 	if err != nil {
 		return BadRequestResponse(c, err.Error())
@@ -101,6 +100,7 @@ func UpdateUserRole(c echo.Context) error {
 func DeleteUser(c echo.Context) error {
 	adminUserID, _ := GetUserID(c)
 
+	// 표준적인 방법으로 URL 파라미터에서 사용자 ID 추출
 	targetUserID, err := ParseUserIDParam(c)
 	if err != nil {
 		return BadRequestResponse(c, err.Error())
@@ -169,10 +169,10 @@ func CreateDepartment(c echo.Context) error {
 func UpdateDepartment(c echo.Context) error {
 	adminUserID, _ := GetUserID(c)
 
-	deptIDParam := c.Param("id")
-	deptID, err := strconv.ParseUint(deptIDParam, 10, 32)
+	// 표준적인 방법으로 URL 파라미터에서 부서 ID 추출
+	deptID, err := ParseDepartmentIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 부서 ID입니다")
+		return BadRequestResponse(c, err.Error())
 	}
 
 	var req dto.DepartmentUpdateRequest
@@ -180,7 +180,7 @@ func UpdateDepartment(c echo.Context) error {
 		return err
 	}
 
-	department, err := service.C().Department.UpdateDepartment(uint(deptID), req)
+	department, err := service.C().Department.UpdateDepartment(deptID, req)
 	if err != nil {
 		log.Printf("❌ 부서 수정 실패 (관리자 ID: %d, 부서 ID: %d): %v", adminUserID, deptID, err)
 		if be, ok := err.(*model.BusinessError); ok {
@@ -204,13 +204,13 @@ func UpdateDepartment(c echo.Context) error {
 func DeleteDepartment(c echo.Context) error {
 	adminUserID, _ := GetUserID(c)
 
-	deptIDParam := c.Param("id")
-	deptID, err := strconv.ParseUint(deptIDParam, 10, 32)
+	// 표준적인 방법으로 URL 파라미터에서 부서 ID 추출
+	deptID, err := ParseDepartmentIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 부서 ID입니다")
+		return BadRequestResponse(c, err.Error())
 	}
 
-	err = service.C().Department.DeleteDepartment(uint(deptID))
+	err = service.C().Department.DeleteDepartment(deptID)
 	if err != nil {
 		log.Printf("❌ 부서 삭제 실패 (관리자 ID: %d, 부서 ID: %d): %v", adminUserID, deptID, err)
 		if be, ok := err.(*model.BusinessError); ok {
@@ -236,13 +236,13 @@ func DeleteDepartment(c echo.Context) error {
 func GetDepartmentUsers(c echo.Context) error {
 	adminUserID, _ := GetUserID(c)
 
-	deptIDParam := c.Param("id")
-	deptID, err := strconv.ParseUint(deptIDParam, 10, 32)
+	// 표준적인 방법으로 URL 파라미터에서 부서 ID 추출
+	deptID, err := ParseDepartmentIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 부서 ID입니다")
+		return BadRequestResponse(c, err.Error())
 	}
 
-	users, err := service.C().Department.GetDepartmentUsers(uint(deptID))
+	users, err := service.C().Department.GetDepartmentUsers(deptID)
 	if err != nil {
 		log.Printf("❌ 부서 사용자 조회 실패 (관리자 ID: %d, 부서 ID: %d): %v", adminUserID, deptID, err)
 		if be, ok := err.(*model.BusinessError); ok {
