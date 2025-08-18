@@ -14,60 +14,93 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// AdminRequired는 관리자 권한을 확인하는 미들웨어입니다.
-func AdminRequired(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		userID, err := UserIDFromToken(c)
-		if err != nil {
-			log.Printf("❌ 토큰에서 사용자 ID 추출 실패: %v", err)
-			return c.JSON(http.StatusUnauthorized, dto.APIResponse{
-				Success: false,
-				Error: &model.APIError{
-					Code:    model.ErrInvalidToken,
-					Message: "유효하지 않은 토큰입니다",
-				},
-			})
-		}
+// RequireAuth는 인증을 요구하고 사용자 ID를 Context에 저장하는 미들웨어입니다.
+func RequireAuth() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			userID, err := UserIDFromToken(c)
+			if err != nil {
+				log.Printf("❌ 토큰 검증 실패: %v", err)
+				return c.JSON(http.StatusUnauthorized, dto.APIResponse{
+					Success: false,
+					Error: &model.APIError{
+						Code:    model.ErrInvalidToken,
+						Message: "유효하지 않은 토큰입니다",
+					},
+				})
+			}
 
-		// 안전한 DB 접근
-		db, err := model.GetDB()
-		if err != nil {
-			log.Printf("❌ 데이터베이스 접근 실패: %v", err)
-			return c.JSON(http.StatusInternalServerError, dto.APIResponse{
-				Success: false,
-				Error: &model.APIError{
-					Code:    model.ErrDatabaseError,
-					Message: "데이터베이스 연결 오류가 발생했습니다",
-				},
-			})
+			// Context에 사용자 ID 저장
+			c.Set("userID", userID)
+			return next(c)
 		}
-
-		// 사용자 권한 확인
-		var user model.User
-		if err := db.Select("role").First(&user, userID).Error; err != nil {
-			log.Printf("❌ 사용자 조회 실패 (ID: %d): %v", userID, err)
-			return c.JSON(http.StatusForbidden, dto.APIResponse{
-				Success: false,
-				Error: &model.APIError{
-					Code:    model.ErrUserNotFound,
-					Message: "사용자를 찾을 수 없습니다",
-				},
-			})
-		}
-
-		if user.Role != model.RoleAdmin {
-			log.Printf("❌ 관리자 권한 없음 (사용자 ID: %d, 권한: %s)", userID, user.Role)
-			return c.JSON(http.StatusForbidden, dto.APIResponse{
-				Success: false,
-				Error: &model.APIError{
-					Code:    model.ErrPermissionDenied,
-					Message: "관리자 권한이 필요합니다",
-				},
-			})
-		}
-
-		return next(c)
 	}
+}
+
+// RequireAdmin는 관리자 권한을 요구하는 미들웨어입니다.
+func RequireAdmin() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			userID, exists := c.Get("userID").(uint)
+			if !exists {
+				return c.JSON(http.StatusUnauthorized, dto.APIResponse{
+					Success: false,
+					Error: &model.APIError{
+						Code:    model.ErrInvalidToken,
+						Message: "인증 정보가 없습니다",
+					},
+				})
+			}
+
+			// 안전한 DB 접근
+			db, err := model.GetDB()
+			if err != nil {
+				log.Printf("❌ 데이터베이스 접근 실패: %v", err)
+				return c.JSON(http.StatusInternalServerError, dto.APIResponse{
+					Success: false,
+					Error: &model.APIError{
+						Code:    model.ErrDatabaseError,
+						Message: "데이터베이스 연결 오류가 발생했습니다",
+					},
+				})
+			}
+
+			// 사용자 권한 확인
+			var user model.User
+			if err := db.Select("role").First(&user, userID).Error; err != nil {
+				log.Printf("❌ 사용자 조회 실패 (ID: %d): %v", userID, err)
+				return c.JSON(http.StatusForbidden, dto.APIResponse{
+					Success: false,
+					Error: &model.APIError{
+						Code:    model.ErrUserNotFound,
+						Message: "사용자를 찾을 수 없습니다",
+					},
+				})
+			}
+
+			if user.Role != model.RoleAdmin {
+				log.Printf("❌ 관리자 권한 없음 (사용자 ID: %d, 권한: %s)", userID, user.Role)
+				return c.JSON(http.StatusForbidden, dto.APIResponse{
+					Success: false,
+					Error: &model.APIError{
+						Code:    model.ErrPermissionDenied,
+						Message: "관리자 권한이 필요합니다",
+					},
+				})
+			}
+
+			return next(c)
+		}
+	}
+}
+
+// GetUserID는 Context에서 사용자 ID를 안전하게 추출합니다.
+func GetUserID(c echo.Context) (uint, error) {
+	userID, exists := c.Get("userID").(uint)
+	if !exists {
+		return 0, fmt.Errorf("user ID not found in context")
+	}
+	return userID, nil
 }
 
 // UserIDFromToken은 JWT 토큰에서 사용자 ID를 안전하게 추출합니다.

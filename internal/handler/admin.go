@@ -51,68 +51,53 @@ func GetUserDetail(c echo.Context) error {
 
 // UpdateUserRole은 사용자 권한을 변경합니다 (관리자용).
 func UpdateUserRole(c echo.Context) error {
-	adminUserID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
-	}
+	adminUserID, _ := GetUserID(c)
 
-	// 대상 사용자 ID 추출
-	userIDParam := c.Param("id")
-	targetUserID, err := strconv.ParseUint(userIDParam, 10, 32)
+	targetUserID, err := ParseUserIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 사용자 ID입니다")
-	}
-
-	// 요청 바디 파싱
-	var req dto.UserRoleUpdateRequest
-	if err := c.Bind(&req); err != nil {
-		return BadRequestResponse(c, "잘못된 요청 형식입니다")
-	}
-
-	// 권한 변경 실행
-	err = service.C().User.UpdateUserRole(adminUserID, uint(targetUserID), req.Role)
-	if err != nil {
-		log.Printf("❌ 사용자 권한 변경 실패 (관리자 ID: %d, 대상 ID: %d): %v", adminUserID, targetUserID, err)
 		return BadRequestResponse(c, err.Error())
 	}
 
-	// 변경된 사용자 정보 조회
-	userDetail, err := service.C().User.GetUserDetailWithKey(uint(targetUserID))
+	var req dto.UserRoleUpdateRequest
+	if err := ValidateJSONRequest(c, &req); err != nil {
+		return err
+	}
+
+	err = service.C().User.UpdateUserRole(adminUserID, targetUserID, req.Role)
+	if err != nil {
+		LogAdminError("사용자 권한 변경", adminUserID, targetUserID, err)
+		return HandleBusinessError(c, err)
+	}
+
+	userDetail, err := service.C().User.GetUserDetailWithKey(targetUserID)
 	if err != nil {
 		return InternalServerErrorResponse(c, "사용자 정보 조회 실패")
 	}
 
-	log.Printf("✅ 사용자 권한 변경 성공 (관리자 ID: %d, 대상 ID: %d → %s)", adminUserID, targetUserID, req.Role)
+	LogAdminAction("사용자 권한 변경", adminUserID, targetUserID, req.Role)
 	return SuccessWithMessageResponse(c, "사용자 권한이 변경되었습니다", userDetail)
 }
 
 // DeleteUser는 사용자를 삭제합니다 (관리자용).
 func DeleteUser(c echo.Context) error {
-	adminUserID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
-	}
+	// 미들웨어에서 이미 관리자 권한 검증됨
+	adminUserID, _ := GetUserID(c)
 
-	// 대상 사용자 ID 추출
-	userIDParam := c.Param("id")
-	targetUserID, err := strconv.ParseUint(userIDParam, 10, 32)
+	targetUserID, err := ParseUserIDParam(c)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 사용자 ID입니다")
-	}
-
-	// 자신을 삭제하려는지 확인
-	if adminUserID == uint(targetUserID) {
-		return BadRequestResponse(c, "자신의 계정은 삭제할 수 없습니다")
-	}
-
-	// 사용자 삭제 실행
-	err = service.C().User.DeleteUser(adminUserID, uint(targetUserID))
-	if err != nil {
-		log.Printf("❌ 사용자 삭제 실패 (관리자 ID: %d, 대상 ID: %d): %v", adminUserID, targetUserID, err)
 		return BadRequestResponse(c, err.Error())
 	}
 
-	log.Printf("✅ 사용자 삭제 성공 (관리자 ID: %d, 대상 ID: %d)", adminUserID, targetUserID)
+	if adminUserID == targetUserID {
+		return BadRequestResponse(c, "자신의 계정은 삭제할 수 없습니다")
+	}
+	err = service.C().User.DeleteUser(adminUserID, targetUserID)
+	if err != nil {
+		LogAdminError("사용자 삭제", adminUserID, targetUserID, err)
+		return HandleBusinessError(c, err)
+	}
+
+	LogAdminAction("사용자 삭제", adminUserID, targetUserID)
 	return SuccessWithMessageResponse(c, "사용자가 삭제되었습니다", nil)
 }
 

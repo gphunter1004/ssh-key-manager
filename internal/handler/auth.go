@@ -12,16 +12,13 @@ import (
 // Register는 새로운 사용자를 등록합니다.
 func Register(c echo.Context) error {
 	var req dto.AuthRequest
-	if err := c.Bind(&req); err != nil {
-		return BadRequestResponse(c, "잘못된 요청 형식입니다")
+	if err := ValidateJSONRequest(c, &req); err != nil {
+		return err
 	}
 
 	user, err := service.C().Auth.RegisterUser(req.Username, req.Password)
 	if err != nil {
-		if be, ok := err.(*model.BusinessError); ok {
-			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
-		}
-		return InternalServerErrorResponse(c, err.Error())
+		return HandleBusinessError(c, err)
 	}
 
 	responseData := map[string]interface{}{
@@ -96,17 +93,12 @@ func RefreshToken(c echo.Context) error {
 
 // ValidateToken은 토큰의 유효성을 검사합니다.
 func ValidateToken(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
-	}
+	// 미들웨어에서 이미 토큰 검증됨
+	userID, _ := GetUserID(c)
 
 	user, err := service.C().User.GetUserByID(userID)
 	if err != nil {
-		if be, ok := err.(*model.BusinessError); ok {
-			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
-		}
-		return UnauthorizedResponse(c, "User not found")
+		return HandleBusinessError(c, err)
 	}
 
 	responseData := map[string]interface{}{

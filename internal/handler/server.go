@@ -12,23 +12,21 @@ import (
 
 // CreateServer는 새로운 서버를 등록합니다.
 func CreateServer(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
-	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
-	}
+	// 미들웨어에서 이미 인증됨
+	userID, _ := GetUserID(c)
 
 	var req dto.ServerCreateRequest
-	if err := c.Bind(&req); err != nil {
-		return BadRequestResponse(c, "잘못된 요청 형식입니다")
+	if err := ValidateJSONRequest(c, &req); err != nil {
+		return err
 	}
 
 	server, err := service.C().Server.CreateServer(userID, req)
 	if err != nil {
-		log.Printf("❌ 서버 등록 실패 (사용자 ID: %d): %v", userID, err)
-		return BadRequestResponse(c, err.Error())
+		LogError("서버 등록", userID, err)
+		return HandleBusinessError(c, err)
 	}
 
-	log.Printf("✅ 서버 등록 성공 (사용자 ID: %d): %s", userID, server.Name)
+	LogSuccess("서버 등록", userID, server.Name)
 	return CreatedResponse(c, "서버가 성공적으로 등록되었습니다", server)
 }
 
@@ -50,21 +48,17 @@ func GetServers(c echo.Context) error {
 
 // GetServer는 특정 서버 정보를 반환합니다.
 func GetServer(c echo.Context) error {
-	userID, err := middleware.UserIDFromToken(c)
+	userID, _ := GetUserID(c)
+
+	serverID, err := ParseServerIDParam(c)
 	if err != nil {
-		return UnauthorizedResponse(c, "Invalid token")
+		return BadRequestResponse(c, err.Error())
 	}
 
-	serverIDParam := c.Param("id")
-	serverID, err := strconv.ParseUint(serverIDParam, 10, 32)
+	server, err := service.C().Server.GetServerByID(userID, serverID)
 	if err != nil {
-		return BadRequestResponse(c, "유효하지 않은 서버 ID입니다")
-	}
-
-	server, err := service.C().Server.GetServerByID(userID, uint(serverID))
-	if err != nil {
-		log.Printf("❌ 서버 조회 실패 (사용자 ID: %d, 서버 ID: %d): %v", userID, serverID, err)
-		return NotFoundResponse(c, err.Error())
+		LogError("서버 조회", userID, err)
+		return HandleBusinessError(c, err)
 	}
 
 	return SuccessResponse(c, server)

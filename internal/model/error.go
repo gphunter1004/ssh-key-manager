@@ -20,18 +20,18 @@ const (
 	ErrLastAdmin         ErrorCode = "USER_LAST_ADMIN"
 
 	// 서버 관련 에러 (SERVER_xxx)
-	ErrServerNotFound     ErrorCode = "SERVER_NOT_FOUND"
-	ErrServerExists       ErrorCode = "SERVER_ALREADY_EXISTS"
-	ErrConnectionFailed   ErrorCode = "SERVER_CONNECTION_FAILED"
-	ErrInvalidServerID    ErrorCode = "SERVER_INVALID_ID"
-	ErrServerNotOwned     ErrorCode = "SERVER_NOT_OWNED"
+	ErrServerNotFound   ErrorCode = "SERVER_NOT_FOUND"
+	ErrServerExists     ErrorCode = "SERVER_ALREADY_EXISTS"
+	ErrConnectionFailed ErrorCode = "SERVER_CONNECTION_FAILED"
+	ErrInvalidServerID  ErrorCode = "SERVER_INVALID_ID"
+	ErrServerNotOwned   ErrorCode = "SERVER_NOT_OWNED"
 
 	// SSH 키 관련 에러 (SSH_xxx)
-	ErrSSHKeyNotFound     ErrorCode = "SSH_KEY_NOT_FOUND"
-	ErrSSHKeyGeneration   ErrorCode = "SSH_KEY_GENERATION_FAILED"
-	ErrSSHKeyDeployment   ErrorCode = "SSH_KEY_DEPLOYMENT_FAILED"
-	ErrSSHKeyExists       ErrorCode = "SSH_KEY_ALREADY_EXISTS"
-	ErrInvalidSSHKey      ErrorCode = "SSH_INVALID_KEY_FORMAT"
+	ErrSSHKeyNotFound   ErrorCode = "SSH_KEY_NOT_FOUND"
+	ErrSSHKeyGeneration ErrorCode = "SSH_KEY_GENERATION_FAILED"
+	ErrSSHKeyDeployment ErrorCode = "SSH_KEY_DEPLOYMENT_FAILED"
+	ErrSSHKeyExists     ErrorCode = "SSH_KEY_ALREADY_EXISTS"
+	ErrInvalidSSHKey    ErrorCode = "SSH_INVALID_KEY_FORMAT"
 
 	// 부서 관련 에러 (DEPT_xxx)
 	ErrDepartmentNotFound ErrorCode = "DEPT_NOT_FOUND"
@@ -42,11 +42,11 @@ const (
 	ErrInvalidParentDept  ErrorCode = "DEPT_INVALID_PARENT"
 
 	// 입력 검증 에러 (VALIDATION_xxx)
-	ErrValidationFailed  ErrorCode = "VALIDATION_FAILED"
-	ErrInvalidInput      ErrorCode = "VALIDATION_INVALID_INPUT"
-	ErrRequiredField     ErrorCode = "VALIDATION_REQUIRED_FIELD"
-	ErrInvalidFormat     ErrorCode = "VALIDATION_INVALID_FORMAT"
-	ErrInvalidRange      ErrorCode = "VALIDATION_INVALID_RANGE"
+	ErrValidationFailed ErrorCode = "VALIDATION_FAILED"
+	ErrInvalidInput     ErrorCode = "VALIDATION_INVALID_INPUT"
+	ErrRequiredField    ErrorCode = "VALIDATION_REQUIRED_FIELD"
+	ErrInvalidFormat    ErrorCode = "VALIDATION_INVALID_FORMAT"
+	ErrInvalidRange     ErrorCode = "VALIDATION_INVALID_RANGE"
 
 	// 시스템 에러 (SYS_xxx)
 	ErrInternalServer  ErrorCode = "SYS_INTERNAL_ERROR"
