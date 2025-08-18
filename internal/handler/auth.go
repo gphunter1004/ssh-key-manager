@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"log"
 	"ssh-key-manager/internal/middleware"
 	"ssh-key-manager/internal/model"
 	"ssh-key-manager/internal/service"
@@ -16,10 +15,13 @@ func Register(c echo.Context) error {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
-	user, err := service.RegisterUser(req.Username, req.Password)
+	authService := service.GetAuthService()
+	user, err := authService.RegisterUser(req.Username, req.Password)
 	if err != nil {
-		log.Printf("❌ 회원가입 실패: %v", err)
-		return BadRequestResponse(c, err.Error())
+		if be, ok := err.(*model.BusinessError); ok {
+			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
+		}
+		return InternalServerErrorResponse(c, err.Error())
 	}
 
 	responseData := map[string]interface{}{
@@ -37,9 +39,12 @@ func Login(c echo.Context) error {
 		return BadRequestResponse(c, "잘못된 요청 형식입니다")
 	}
 
-	token, user, err := service.AuthenticateUser(req.Username, req.Password)
+	authService := service.GetAuthService()
+	token, user, err := authService.AuthenticateUser(req.Username, req.Password)
 	if err != nil {
-		log.Printf("❌ 로그인 실패: %v", err)
+		if be, ok := err.(*model.BusinessError); ok {
+			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
+		}
 		return UnauthorizedResponse(c, "사용자명 또는 비밀번호가 올바르지 않습니다")
 	}
 
@@ -60,8 +65,6 @@ func Logout(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	log.Printf("👤 사용자 로그아웃: ID %d", userID)
-
 	responseData := map[string]interface{}{
 		"message": "로그아웃이 완료되었습니다",
 	}
@@ -76,8 +79,12 @@ func RefreshToken(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	newToken, err := service.RefreshUserToken(userID)
+	authService := service.GetAuthService()
+	newToken, err := authService.RefreshUserToken(userID)
 	if err != nil {
+		if be, ok := err.(*model.BusinessError); ok {
+			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
+		}
 		return InternalServerErrorResponse(c, "토큰 갱신 중 오류가 발생했습니다")
 	}
 
@@ -96,8 +103,12 @@ func ValidateToken(c echo.Context) error {
 		return UnauthorizedResponse(c, "Invalid token")
 	}
 
-	user, err := service.GetUserByID(userID)
+	authService := service.GetAuthService()
+	user, err := authService.GetUserByID(userID)
 	if err != nil {
+		if be, ok := err.(*model.BusinessError); ok {
+			return BusinessErrorResponse(c, mapBusinessErrorToHTTPStatus(be.Code), be)
+		}
 		return UnauthorizedResponse(c, "User not found")
 	}
 
@@ -109,4 +120,31 @@ func ValidateToken(c echo.Context) error {
 	}
 
 	return SuccessResponse(c, responseData)
+}
+
+// mapBusinessErrorToHTTPStatus는 비즈니스 에러를 HTTP 상태 코드로 매핑합니다.
+func mapBusinessErrorToHTTPStatus(code model.ErrorCode) int {
+	switch code {
+	case model.ErrInvalidCredentials, model.ErrTokenExpired, model.ErrInvalidToken, model.ErrInvalidJWT:
+		return 401
+	case model.ErrPermissionDenied:
+		return 403
+	case model.ErrUserNotFound, model.ErrServerNotFound, model.ErrSSHKeyNotFound, model.ErrDepartmentNotFound:
+		return 404
+	case model.ErrUserAlreadyExists, model.ErrServerExists, model.ErrDepartmentExists, model.ErrSSHKeyExists:
+		return 409
+	case model.ErrValidationFailed, model.ErrInvalidInput, model.ErrWeakPassword, model.ErrRequiredField,
+		model.ErrInvalidFormat, model.ErrInvalidRange, model.ErrInvalidUsername, model.ErrInvalidServerID,
+		model.ErrInvalidDeptID, model.ErrCannotDeleteSelf, model.ErrLastAdmin, model.ErrDepartmentHasUsers,
+		model.ErrDepartmentHasChild, model.ErrInvalidParentDept, model.ErrServerNotOwned, model.ErrInvalidSSHKey:
+		return 400
+	case model.ErrConnectionFailed:
+		return 502
+	case model.ErrSSHKeyGeneration, model.ErrSSHKeyDeployment:
+		return 500
+	case model.ErrInternalServer, model.ErrDatabaseError, model.ErrConfigError, model.ErrFileSystemError:
+		return 500
+	default:
+		return 400
+	}
 }

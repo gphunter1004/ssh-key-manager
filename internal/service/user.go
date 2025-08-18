@@ -1,25 +1,39 @@
 package service
 
 import (
-	"errors"
 	"log"
 	"ssh-key-manager/internal/model"
+	"ssh-key-manager/internal/repository"
 	"ssh-key-manager/internal/util"
 	"strings"
 
 	"gorm.io/gorm"
 )
 
-// UpdateUserProfile은 사용자 프로필을 업데이트합니다.
-func UpdateUserProfile(userID uint, req model.UserUpdateRequest) (*model.User, error) {
+// UserService 사용자 관리 서비스
+type UserService struct {
+	repos *repository.Repositories
+}
+
+// NewUserService 사용자 서비스 생성자
+func NewUserService(repos *repository.Repositories) *UserService {
+	return &UserService{repos: repos}
+}
+
+// UpdateUserProfile 사용자 프로필을 업데이트합니다.
+func (us *UserService) UpdateUserProfile(userID uint, req model.UserUpdateRequest) (*model.User, error) {
 	log.Printf("✏️ 사용자 프로필 업데이트 (ID: %d)", userID)
 
-	var user model.User
-	if err := model.DB.First(&user, userID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("사용자를 찾을 수 없습니다")
+	// 사용자 존재 확인
+	user, err := us.repos.User.FindByID(userID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, model.NewUserNotFoundError()
 		}
-		return nil, err
+		return nil, model.NewBusinessError(
+			model.ErrDatabaseError,
+			"사용자 조회 중 오류가 발생했습니다",
+		)
 	}
 
 	updates := make(map[string]interface{})
@@ -29,9 +43,18 @@ func UpdateUserProfile(userID uint, req model.UserUpdateRequest) (*model.User, e
 		username := strings.TrimSpace(req.Username)
 		if username != "" {
 			// 중복 확인
-			var existingUser model.User
-			if err := model.DB.Where("username = ? AND id != ?", username, userID).First(&existingUser).Error; err == nil {
-				return nil, errors.New("이미 사용 중인 사용자명입니다")
+			exists, err := us.repos.User.ExistsByUsername(username)
+			if err != nil {
+				return nil, model.NewBusinessError(
+					model.ErrDatabaseError,
+					"사용자명 중복 확인 중 오류가 발생했습니다",
+				)
+			}
+			if exists {
+				return nil, model.NewBusinessError(
+					model.ErrUserAlreadyExists,
+					"이미 사용 중인 사용자명입니다",
+				)
 			}
 			updates["username"] = username
 		}
@@ -40,80 +63,115 @@ func UpdateUserProfile(userID uint, req model.UserUpdateRequest) (*model.User, e
 	// 비밀번호 업데이트
 	if req.NewPassword != "" {
 		if len(req.NewPassword) < 4 {
-			return nil, errors.New("비밀번호는 최소 4자 이상이어야 합니다")
+			return nil, model.NewBusinessError(
+				model.ErrWeakPassword,
+				"비밀번호는 최소 4자 이상이어야 합니다",
+			)
 		}
 		hashedPassword, err := util.HashPassword(req.NewPassword)
 		if err != nil {
-			return nil, errors.New("비밀번호 처리 중 오류가 발생했습니다")
+			return nil, model.NewBusinessError(
+				model.ErrInternalServer,
+				"비밀번호 처리 중 오류가 발생했습니다",
+			)
 		}
 		updates["password"] = hashedPassword
 	}
 
 	// 업데이트 실행
 	if len(updates) > 0 {
-		if err := model.DB.Model(&user).Updates(updates).Error; err != nil {
+		if err := us.repos.User.Update(userID, updates); err != nil {
 			if strings.Contains(err.Error(), "duplicate") {
-				return nil, errors.New("이미 사용 중인 사용자명입니다")
+				return nil, model.NewBusinessError(
+					model.ErrUserAlreadyExists,
+					"이미 사용 중인 사용자명입니다",
+				)
 			}
-			return nil, errors.New("프로필 업데이트 중 오류가 발생했습니다")
+			return nil, model.NewBusinessError(
+				model.ErrDatabaseError,
+				"프로필 업데이트 중 오류가 발생했습니다",
+			)
 		}
-		
+
 		// 업데이트된 정보 다시 조회
-		model.DB.First(&user, userID)
+		user, err = us.repos.User.FindByID(userID)
+		if err != nil {
+			return nil, model.NewBusinessError(
+				model.ErrDatabaseError,
+				"업데이트된 사용자 정보 조회 실패",
+			)
+		}
 	}
 
 	// 비밀번호 필드 제거
 	user.Password = ""
 	log.Printf("✅ 사용자 프로필 업데이트 완료: %s", user.Username)
-	return &user, nil
+	return user, nil
 }
 
-// GetAllUsers는 모든 사용자 목록을 반환합니다.
-func GetAllUsers() ([]model.User, error) {
+// GetAllUsers 모든 사용자 목록을 반환합니다.
+func (us *UserService) GetAllUsers() ([]model.User, error) {
 	log.Printf("👥 모든 사용자 목록 조회")
 
-	var users []model.User
-	if err := model.DB.Select("id, username, role, created_at, updated_at").Find(&users).Error; err != nil {
+	users, err := us.repos.User.FindAll()
+	if err != nil {
 		log.Printf("❌ 사용자 목록 조회 실패: %v", err)
-		return nil, err
+		return nil, model.NewBusinessError(
+			model.ErrDatabaseError,
+			"사용자 목록 조회 중 오류가 발생했습니다",
+		)
+	}
+
+	// 모든 사용자의 비밀번호 필드 제거
+	for i := range users {
+		users[i].Password = ""
 	}
 
 	log.Printf("✅ 사용자 목록 조회 완료 (총 %d명)", len(users))
 	return users, nil
 }
 
-// GetUserDetailWithKey는 SSH 키 정보를 포함한 사용자 상세 정보를 반환합니다.
-func GetUserDetailWithKey(userID uint) (map[string]interface{}, error) {
+// GetUserDetailWithKey SSH 키 정보를 포함한 사용자 상세 정보를 반환합니다.
+func (us *UserService) GetUserDetailWithKey(userID uint) (map[string]interface{}, error) {
 	log.Printf("🔍 사용자 상세 정보 조회 중 (ID: %d)", userID)
 
-	var user model.User
-	if err := model.DB.Select("id, username, role, created_at, updated_at").First(&user, userID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("사용자를 찾을 수 없습니다")
+	user, err := us.repos.User.FindByID(userID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, model.NewUserNotFoundError()
 		}
-		return nil, err
+		return nil, model.NewBusinessError(
+			model.ErrDatabaseError,
+			"사용자 조회 중 오류가 발생했습니다",
+		)
 	}
 
 	// SSH 키 존재 여부 및 정보 확인
-	hasSSHKey := HasUserSSHKey(userID)
-	
+	hasSSHKey, err := us.repos.SSHKey.ExistsByUserID(userID)
+	if err != nil {
+		return nil, model.NewBusinessError(
+			model.ErrDatabaseError,
+			"SSH 키 확인 중 오류가 발생했습니다",
+		)
+	}
+
 	responseData := map[string]interface{}{
-		"id":         user.ID,
-		"username":   user.Username,
-		"role":       user.Role,
+		"id":          user.ID,
+		"username":    user.Username,
+		"role":        user.Role,
 		"has_ssh_key": hasSSHKey,
-		"created_at": user.CreatedAt,
-		"updated_at": user.UpdatedAt,
+		"created_at":  user.CreatedAt,
+		"updated_at":  user.UpdatedAt,
 	}
 
 	// SSH 키 상세 정보 포함 (있는 경우)
 	if hasSSHKey {
-		sshKey, err := GetUserSSHKey(userID)
+		sshKey, err := us.repos.SSHKey.FindByUserID(userID)
 		if err == nil {
 			responseData["ssh_key"] = map[string]interface{}{
-				"id":        sshKey.ID,
-				"algorithm": sshKey.Algorithm,
-				"bits":      sshKey.Bits,
+				"id":         sshKey.ID,
+				"algorithm":  sshKey.Algorithm,
+				"bits":       sshKey.Bits,
 				"created_at": sshKey.CreatedAt,
 				"updated_at": sshKey.UpdatedAt,
 			}
@@ -124,110 +182,178 @@ func GetUserDetailWithKey(userID uint) (map[string]interface{}, error) {
 	return responseData, nil
 }
 
-// UpdateUserRole은 사용자의 권한을 변경합니다 (관리자만 가능).
-func UpdateUserRole(adminUserID, targetUserID uint, newRole string) error {
+// UpdateUserRole 사용자의 권한을 변경합니다 (관리자만 가능).
+func (us *UserService) UpdateUserRole(adminUserID, targetUserID uint, newRole string) error {
 	log.Printf("👑 사용자 권한 변경 시도 (관리자 ID: %d, 대상 ID: %d, 새 권한: %s)", adminUserID, targetUserID, newRole)
 
 	// 관리자 권한 확인
-	if !IsUserAdmin(adminUserID) {
-		return errors.New("관리자 권한이 필요합니다")
+	admin, err := us.repos.User.FindByID(adminUserID)
+	if err != nil {
+		return model.NewBusinessError(
+			model.ErrUserNotFound,
+			"관리자 사용자를 찾을 수 없습니다",
+		)
+	}
+	if admin.Role != model.RoleAdmin {
+		return model.NewBusinessError(
+			model.ErrPermissionDenied,
+			"관리자 권한이 필요합니다",
+		)
 	}
 
 	// 권한 값 검증
 	if newRole != string(model.RoleUser) && newRole != string(model.RoleAdmin) {
-		return errors.New("유효하지 않은 권한입니다. 'user' 또는 'admin'만 가능합니다")
+		return model.NewBusinessError(
+			model.ErrInvalidInput,
+			"유효하지 않은 권한입니다. 'user' 또는 'admin'만 가능합니다",
+		)
 	}
 
 	// 대상 사용자 조회
-	var targetUser model.User
-	if err := model.DB.Select("id, username, role").First(&targetUser, targetUserID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("사용자를 찾을 수 없습니다")
+	targetUser, err := us.repos.User.FindByID(targetUserID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return model.NewUserNotFoundError()
 		}
-		return err
+		return model.NewBusinessError(
+			model.ErrDatabaseError,
+			"대상 사용자 조회 중 오류가 발생했습니다",
+		)
 	}
 
 	// 자신의 권한은 변경할 수 없음 (안전장치)
 	if adminUserID == targetUserID {
-		return errors.New("자신의 권한은 변경할 수 없습니다")
+		return model.NewBusinessError(
+			model.ErrCannotDeleteSelf,
+			"자신의 권한은 변경할 수 없습니다",
+		)
 	}
 
 	// 마지막 관리자 보호 (최소 1명의 관리자 유지)
 	if targetUser.Role == model.RoleAdmin && newRole == string(model.RoleUser) {
-		var adminCount int64
-		model.DB.Model(&model.User{}).Where("role = ?", model.RoleAdmin).Count(&adminCount)
+		adminCount, err := us.repos.User.CountByRole(model.RoleAdmin)
+		if err != nil {
+			return model.NewBusinessError(
+				model.ErrDatabaseError,
+				"관리자 수 확인 중 오류가 발생했습니다",
+			)
+		}
 		if adminCount <= 1 {
-			return errors.New("최소 1명의 관리자가 필요합니다")
+			return model.NewBusinessError(
+				model.ErrLastAdmin,
+				"최소 1명의 관리자가 필요합니다",
+			)
 		}
 	}
 
 	// 권한 변경
 	oldRole := string(targetUser.Role)
-	if err := model.DB.Model(&targetUser).Update("role", model.UserRole(newRole)).Error; err != nil {
+	updates := map[string]interface{}{
+		"role": model.UserRole(newRole),
+	}
+	if err := us.repos.User.Update(targetUserID, updates); err != nil {
 		log.Printf("❌ 권한 변경 실패: %v", err)
-		return errors.New("권한 변경 중 오류가 발생했습니다")
+		return model.NewBusinessError(
+			model.ErrDatabaseError,
+			"권한 변경 중 오류가 발생했습니다",
+		)
 	}
 
 	log.Printf("✅ 사용자 권한 변경 완료: %s (%s → %s)", targetUser.Username, oldRole, newRole)
 	return nil
 }
 
-// DeleteUser는 사용자를 삭제합니다 (관리자만 가능).
-func DeleteUser(adminUserID, targetUserID uint) error {
+// DeleteUser 사용자를 삭제합니다 (관리자만 가능).
+func (us *UserService) DeleteUser(adminUserID, targetUserID uint) error {
 	log.Printf("🗑️ 사용자 삭제 시도 (관리자 ID: %d, 대상 ID: %d)", adminUserID, targetUserID)
 
 	// 관리자 권한 확인
-	if !IsUserAdmin(adminUserID) {
-		return errors.New("관리자 권한이 필요합니다")
+	admin, err := us.repos.User.FindByID(adminUserID)
+	if err != nil {
+		return model.NewBusinessError(
+			model.ErrUserNotFound,
+			"관리자 사용자를 찾을 수 없습니다",
+		)
+	}
+	if admin.Role != model.RoleAdmin {
+		return model.NewBusinessError(
+			model.ErrPermissionDenied,
+			"관리자 권한이 필요합니다",
+		)
 	}
 
 	// 사용자 존재 확인
-	var user model.User
-	if err := model.DB.Select("id, username, role").First(&user, targetUserID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("사용자를 찾을 수 없습니다")
+	user, err := us.repos.User.FindByID(targetUserID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return model.NewUserNotFoundError()
 		}
-		return err
+		return model.NewBusinessError(
+			model.ErrDatabaseError,
+			"대상 사용자 조회 중 오류가 발생했습니다",
+		)
+	}
+
+	// 자신을 삭제하려는지 확인
+	if adminUserID == targetUserID {
+		return model.NewBusinessError(
+			model.ErrCannotDeleteSelf,
+			"자신의 계정은 삭제할 수 없습니다",
+		)
 	}
 
 	// 마지막 관리자 보호
 	if user.Role == model.RoleAdmin {
-		var adminCount int64
-		model.DB.Model(&model.User{}).Where("role = ?", model.RoleAdmin).Count(&adminCount)
+		adminCount, err := us.repos.User.CountByRole(model.RoleAdmin)
+		if err != nil {
+			return model.NewBusinessError(
+				model.ErrDatabaseError,
+				"관리자 수 확인 중 오류가 발생했습니다",
+			)
+		}
 		if adminCount <= 1 {
-			return errors.New("최소 1명의 관리자가 필요합니다")
+			return model.NewBusinessError(
+				model.ErrLastAdmin,
+				"최소 1명의 관리자가 필요합니다",
+			)
 		}
 	}
 
 	// 트랜잭션으로 관련 데이터 함께 삭제
-	tx := model.DB.Begin()
+	err = us.repos.TxManager.WithTransaction(func(tx *gorm.DB) error {
+		// SSH 키 삭제
+		if err := us.repos.SSHKey.DeleteByUserID(targetUserID); err != nil {
+			return err
+		}
 
-	// SSH 키 삭제
-	if err := tx.Where("user_id = ?", targetUserID).Delete(&model.SSHKey{}).Error; err != nil {
-		tx.Rollback()
-		return err
+		// 서버 삭제 (사용자 소유 서버들)
+		servers, err := us.repos.Server.FindByUserID(targetUserID)
+		if err != nil {
+			return err
+		}
+		for _, server := range servers {
+			// 배포 기록 먼저 삭제
+			if err := us.repos.Deployment.DeleteByServerID(server.ID); err != nil {
+				return err
+			}
+			// 서버 삭제
+			if err := us.repos.Server.Delete(server.ID); err != nil {
+				return err
+			}
+		}
+
+		// 사용자 삭제
+		return us.repos.User.Delete(targetUserID)
+	})
+
+	if err != nil {
+		log.Printf("❌ 사용자 삭제 실패: %v", err)
+		return model.NewBusinessError(
+			model.ErrDatabaseError,
+			"사용자 삭제 중 오류가 발생했습니다",
+		)
 	}
-
-	// 서버 삭제
-	if err := tx.Where("user_id = ?", targetUserID).Delete(&model.Server{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// 배포 기록 삭제
-	if err := tx.Where("user_id = ?", targetUserID).Delete(&model.ServerKeyDeployment{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// 사용자 삭제
-	if err := tx.Delete(&user).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	tx.Commit()
 
 	log.Printf("✅ 사용자 삭제 완료: %s (ID: %d, 권한: %s)", user.Username, targetUserID, string(user.Role))
 	return nil
-} 
+}
