@@ -38,7 +38,10 @@ window.ProfileManager = {
             // 로딩 상태 표시
             this.setLoadingState('프로필 정보를 불러오는 중...');
             
-            const userData = await AppUtils.apiFetch('/users/me', 'GET');
+            const response = await AppUtils.apiFetch('/users/me', 'GET');
+            
+            // Go 백엔드 응답 구조 처리: { success: true, data: userInfo }
+            const userData = response.data || response;
             
             this.currentProfile = userData;
             AppState.currentUser = userData;
@@ -52,7 +55,7 @@ window.ProfileManager = {
             this.populateForm(userData);
             
         } catch (error) {
-            console.error('프로필 로드 실패:', error.message);
+            console.error('프로필 로드 실패:', this.getErrorMessage(error));
             this.showProfileError('프로필 정보를 불러올 수 없습니다.');
         } finally {
             this.isLoading = false;
@@ -214,7 +217,7 @@ window.ProfileManager = {
             await this.loadCurrentUserProfile();
             
         } catch (error) {
-            console.error('프로필 업데이트 실패:', error.message);
+            console.error('프로필 업데이트 실패:', this.getErrorMessage(error));
             // 에러는 이미 AppUtils.apiFetch에서 표시됨
         } finally {
             this.setFormLoadingState(false);
@@ -419,9 +422,29 @@ window.ProfileManager = {
         await this.loadCurrentUserProfile();
     },
 
+    // 에러 메시지 안전 추출 헬퍼 함수
+    getErrorMessage: function(error) {
+        if (typeof error === 'string') {
+            return error;
+        }
+        
+        if (error && typeof error === 'object') {
+            if (error.message) {
+                return error.message;
+            }
+            if (error.toString && typeof error.toString === 'function') {
+                const str = error.toString();
+                return str !== '[object Object]' ? str : 'Unknown error';
+            }
+        }
+        
+        return 'Unknown error';
+    },
+
     // HTML 이스케이프 유틸리티
     escapeHtml: function(unsafe) {
-        return unsafe
+        if (!unsafe) return '';
+        return String(unsafe)
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")

@@ -1,300 +1,257 @@
-// 메인 애플리케이션 스크립트 - 긴급 수정 버전
+// SSH Key Manager - 최종 완성본 (AuthManager 연동)
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 SSH Key Manager 애플리케이션 시작');
+    console.log('🚀 SSH Key Manager 시작');
     
-    // 전역 상태 관리
+    // 전역 상태
     window.AppState = {
         jwtToken: localStorage.getItem('jwtToken') || null,
         currentUser: null,
         currentView: 'keys'
     };
-
-    // API 기본 설정
+    
     window.API_BASE_URL = '/api';
-
-    // DOM 요소 초기화 - 더 안전한 방식
-    const domInitialized = initializeDOMElements();
-    if (!domInitialized) {
-        console.error('❌ DOM 초기화 실패');
-        // DOM 초기화 실패해도 계속 진행
-    }
+    
+    // DOM 요소 초기화
+    initializeDOM();
     
     // 매니저들 초기화
     initializeManagers();
     
-    // 이벤트 리스너 설정
-    setupEventListeners();
+    // 이벤트 설정
+    setupEvents();
     
     // 자동 로그인 확인
     await checkAutoLogin();
     
-    // 초기 UI 업데이트 - 강제로 실행
-    forceUpdateUI();
+    // UI 업데이트
+    updateUI();
     
-    // 추가 설정들
-    setupTokenRefresh();
-    setupOfflineDetection();
-    
-    console.log('✅ 애플리케이션 초기화 완료');
+    console.log('✅ 초기화 완료');
 });
 
-function initializeDOMElements() {
-    console.log('📋 DOM 요소 초기화 중...');
+// DOM 요소 초기화
+function initializeDOM() {
+    window.DOM = {
+        // 컨테이너
+        container: document.querySelector('.container'),
+        authSection: document.getElementById('auth-section'),
+        keySection: document.getElementById('key-section'),
+        
+        // 인증 관련
+        loginView: document.getElementById('login-view'),
+        registerView: document.getElementById('register-view'),
+        loginForm: document.getElementById('login-form'),
+        registerForm: document.getElementById('register-form'),
+        showRegisterLink: document.getElementById('show-register'),
+        showLoginLink: document.getElementById('show-login'),
+        
+        // 네비게이션
+        navKeys: document.getElementById('nav-keys'),
+        navUsers: document.getElementById('nav-users'),
+        navProfile: document.getElementById('nav-profile'),
+        navServers: document.getElementById('nav-servers'),
+        navDepartments: document.getElementById('nav-departments'),
+        logoutBtn: document.getElementById('logout-btn'),
+        
+        // 뷰
+        keysView: document.getElementById('keys-view'),
+        usersView: document.getElementById('users-view'),
+        profileView: document.getElementById('profile-view'),
+        serversView: document.getElementById('servers-view'),
+        departmentsView: document.getElementById('departments-view'),
+        
+        // 기타
+        errorDisplay: document.getElementById('error-display'),
+        usersList: document.getElementById('users-list'),
+        currentUserInfo: document.getElementById('current-user-info'),
+        userDetailModal: document.getElementById('user-detail-modal'),
+        userDetailContent: document.getElementById('user-detail-content'),
+        totalUsersSpan: document.getElementById('total-users'),
+        usersWithKeysSpan: document.getElementById('users-with-keys'),
+        profileForm: document.getElementById('profile-form'),
+        closeModalBtn: document.querySelector('.close')
+    };
     
-    try {
-        window.DOM = {};
-        
-        // 필수 요소들을 하나씩 확인하고 설정
-        const elements = {
-            container: '.container',
-            authSection: '#auth-section',
-            keySection: '#key-section',
-            loginView: '#login-view',
-            registerView: '#register-view',
-            errorDisplay: '#error-display',
-            
-            // 뷰들
-            keysView: '#keys-view',
-            usersView: '#users-view', 
-            profileView: '#profile-view',
-            
-            // 네비게이션
-            navKeys: '#nav-keys',
-            navUsers: '#nav-users',
-            navProfile: '#nav-profile',
-            
-            // 키 관련
-            keyDisplayArea: '#key-display-area',
-            keyInfo: '#key-info',
-            keyPublicPre: '#key-public',
-            keyPemPre: '#key-pem',
-            keyPpkPre: '#key-ppk',
-            
-            // 폼들
-            loginForm: '#login-form',
-            registerForm: '#register-form',
-            profileForm: '#profile-form',
-            
-            // 버튼들
-            showRegisterLink: '#show-register',
-            showLoginLink: '#show-login',
-            logoutBtn: '#logout-btn',
-            
-            // 기타
-            usersList: '#users-list',
-            currentUserInfo: '#current-user-info',
-            userDetailModal: '#user-detail-modal',
-            userDetailContent: '#user-detail-content',
-            closeModalBtn: '.close'
-        };
-        
-        Object.entries(elements).forEach(([key, selector]) => {
-            const element = document.querySelector(selector);
-            DOM[key] = element;
-            if (!element) {
-                console.warn(`⚠️ ${key} (${selector}) 요소를 찾을 수 없습니다`);
-            }
-        });
-        
-        // 최소한 필요한 요소들 확인
-        const criticalElements = ['authSection', 'keySection', 'loginForm'];
-        const missingCritical = criticalElements.filter(key => !DOM[key]);
-        
-        if (missingCritical.length > 0) {
-            console.error('❌ 필수 DOM 요소 누락:', missingCritical);
-            return false;
-        }
-        
-        console.log('✅ DOM 요소 초기화 완료');
-        return true;
-        
-    } catch (error) {
-        console.error('❌ DOM 초기화 중 오류:', error);
-        return false;
-    }
+    console.log('✅ DOM 요소 초기화 완료');
 }
 
+// 매니저 초기화
 function initializeManagers() {
-    console.log('🔧 매니저들 초기화 중...');
+    const managers = [
+        { name: 'Utils', manager: Utils },
+        { name: 'CopyManager', manager: CopyManager },
+        { name: 'KeyManager', manager: KeyManager },
+        { name: 'ModalManager', manager: ModalManager },
+        { name: 'ViewManager', manager: ViewManager },
+        { name: 'AuthManager', manager: AuthManager }
+    ];
     
-    try {
-        // 매니저 초기화 - 안전하게 실행
-        [
-            () => Utils?.init?.(),
-            () => CopyManager?.init?.(),
-            () => KeyManager?.init?.(),
-            () => ModalManager?.init?.(),
-            () => ViewManager?.init?.(),
-            () => AuthManager?.init?.()
-        ].forEach((initFn, index) => {
-            try {
-                initFn();
-            } catch (error) {
-                console.warn(`⚠️ 매니저 ${index} 초기화 실패:`, error.message);
+    managers.forEach(({ name, manager }) => {
+        try {
+            if (manager && manager.init) {
+                manager.init();
+                console.log(`✅ ${name} 초기화 완료`);
             }
-        });
-        
-        console.log('✅ 매니저들 초기화 완료');
-        
-    } catch (error) {
-        console.error('❌ 매니저 초기화 중 오류:', error);
-    }
+        } catch (error) {
+            console.warn(`⚠️ ${name} 초기화 실패:`, error.message);
+        }
+    });
 }
 
-function setupEventListeners() {
-    console.log('🎯 이벤트 리스너 설정 중...');
+// 이벤트 설정
+function setupEvents() {
+    console.log('🎯 이벤트 설정 시작');
     
-    try {
-        // 네비게이션 이벤트 - 직접 이벤트 리스너 추가
-        if (DOM.navKeys) {
-            DOM.navKeys.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('🔘 키 관리 버튼 클릭');
-                showKeysView();
-            });
-        }
-        
-        if (DOM.navUsers) {
-            DOM.navUsers.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('🔘 사용자 목록 버튼 클릭');
-                showUsersView();
-            });
-        }
-        
-        if (DOM.navProfile) {
-            DOM.navProfile.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('🔘 프로필 버튼 클릭');
-                showProfileView();
-            });
-        }
-
-        // 매니저 이벤트 리스너들 설정
-        [
-            () => AuthManager?.setupEventListeners?.(),
-            () => UserManager?.setupEventListeners?.(),
-            () => ProfileManager?.setupEventListeners?.(),
-            () => ModalManager?.setupEventListeners?.(),
-            () => CopyManager?.setupEventListeners?.()
-        ].forEach((setupFn, index) => {
-            try {
-                setupFn();
-            } catch (error) {
-                console.warn(`⚠️ 매니저 ${index} 이벤트 설정 실패:`, error.message);
+    // 네비게이션 이벤트
+    setupNavigationEvents();
+    
+    // 매니저 이벤트 설정 (AuthManager가 인증 이벤트 담당)
+    const managers = [
+        { name: 'AuthManager', manager: AuthManager },
+        { name: 'UserManager', manager: UserManager },
+        { name: 'ProfileManager', manager: ProfileManager },
+        { name: 'ModalManager', manager: ModalManager },
+        { name: 'CopyManager', manager: CopyManager }
+    ];
+    
+    managers.forEach(({ name, manager }) => {
+        try {
+            if (manager && manager.setupEventListeners) {
+                manager.setupEventListeners();
+                console.log(`✅ ${name} 이벤트 설정 완료`);
             }
-        });
-        
-        console.log('✅ 이벤트 리스너 설정 완료');
-        
-    } catch (error) {
-        console.error('❌ 이벤트 리스너 설정 중 오류:', error);
+        } catch (error) {
+            console.warn(`⚠️ ${name} 이벤트 설정 실패:`, error.message);
+        }
+    });
+    
+    console.log('✅ 모든 이벤트 설정 완료');
+}
+
+// 네비게이션 이벤트 설정
+function setupNavigationEvents() {
+    const navButtons = [
+        { element: DOM.navKeys, view: 'keys', name: '키 관리' },
+        { element: DOM.navUsers, view: 'users', name: '사용자 목록' },
+        { element: DOM.navProfile, view: 'profile', name: '프로필' },
+        { element: DOM.navServers, view: 'servers', name: '서버 관리' },
+        { element: DOM.navDepartments, view: 'departments', name: '부서 관리' }
+    ];
+    
+    navButtons.forEach(({ element, view, name }) => {
+        if (element) {
+            element.onclick = function(e) {
+                e.preventDefault();
+                console.log(`🔘 ${name} 버튼 클릭`);
+                showView(view);
+            };
+            console.log(`✅ ${name} 이벤트 설정`);
+        }
+    });
+    
+    // 로그아웃 버튼
+    if (DOM.logoutBtn) {
+        DOM.logoutBtn.onclick = function(e) {
+            e.preventDefault();
+            console.log('🚪 로그아웃 버튼 클릭');
+            if (AuthManager && AuthManager.handleLogout) {
+                AuthManager.handleLogout();
+            } else {
+                handleLogout();
+            }
+        };
+        console.log('✅ 로그아웃 버튼 이벤트 설정');
     }
 }
 
-// 직접 뷰 전환 함수들 (ViewManager가 작동하지 않을 때 사용)
-function showKeysView() {
-    console.log('🔑 키 뷰 표시');
-    hideAllViews();
-    resetNavigation();
-    
-    if (DOM.keysView) {
-        DOM.keysView.classList.remove('hidden');
-    }
-    if (DOM.navKeys) {
-        DOM.navKeys.classList.add('active');
-    }
-    
-    // KeyManager 자동 로드
-    if (KeyManager?.autoLoadKeys) {
-        KeyManager.autoLoadKeys();
-    }
-}
-
-function showUsersView() {
-    console.log('👥 사용자 뷰 표시');
+// 뷰 전환
+function showView(viewName) {
+    console.log('🔄 뷰 전환:', viewName);
     
     // 권한 확인
-    if (AppState.currentUser?.role !== 'admin') {
-        Utils?.showToast?.('관리자만 접근 가능합니다', 'warning');
+    if ((viewName === 'users' || viewName === 'departments') && 
+        AppState.currentUser?.role !== 'admin') {
+        showMessage('관리자만 접근 가능합니다', 'warning');
         return;
     }
     
-    hideAllViews();
-    resetNavigation();
-    
-    if (DOM.usersView) {
-        DOM.usersView.classList.remove('hidden');
-    }
-    if (DOM.navUsers) {
-        DOM.navUsers.classList.add('active');
-    }
-    
-    // UserManager 로드
-    if (UserManager?.loadUsersList) {
-        UserManager.loadUsersList();
-    }
-}
-
-function showProfileView() {
-    console.log('👤 프로필 뷰 표시');
-    hideAllViews();
-    resetNavigation();
-    
-    if (DOM.profileView) {
-        DOM.profileView.classList.remove('hidden');
-    }
-    if (DOM.navProfile) {
-        DOM.navProfile.classList.add('active');
-    }
-    
-    // ProfileManager 로드
-    if (ProfileManager?.loadCurrentUserProfile) {
-        ProfileManager.loadCurrentUserProfile();
-    }
-}
-
-function hideAllViews() {
-    const views = ['keysView', 'usersView', 'profileView'];
+    // 모든 뷰 숨기기
+    const views = ['keys', 'users', 'profile', 'servers', 'departments'];
     views.forEach(view => {
-        if (DOM[view]) {
-            DOM[view].classList.add('hidden');
+        const element = DOM[view + 'View'];
+        if (element) {
+            element.classList.add('hidden');
         }
     });
-}
-
-function resetNavigation() {
-    const navs = ['navKeys', 'navUsers', 'navProfile'];
-    navs.forEach(nav => {
-        if (DOM[nav]) {
-            DOM[nav].classList.remove('active');
-        }
-    });
-}
-
-// 강제 UI 업데이트 함수
-function forceUpdateUI() {
-    console.log('🎨 강제 UI 업데이트 실행');
     
+    // 네비게이션 초기화
+    const navs = ['navKeys', 'navUsers', 'navProfile', 'navServers', 'navDepartments'];
+    navs.forEach(nav => {
+        const element = DOM[nav];
+        if (element) {
+            element.classList.remove('active');
+        }
+    });
+    
+    // 선택된 뷰 표시
+    const targetView = DOM[viewName + 'View'];
+    const targetNav = DOM['nav' + viewName.charAt(0).toUpperCase() + viewName.slice(1)];
+    
+    if (targetView) {
+        targetView.classList.remove('hidden');
+        console.log(`✅ ${viewName}-view 활성화`);
+    }
+    if (targetNav) {
+        targetNav.classList.add('active');
+        console.log(`✅ nav-${viewName} 활성화`);
+    }
+    
+    AppState.currentView = viewName;
+    
+    // 뷰별 초기화
+    switch(viewName) {
+        case 'keys':
+            if (KeyManager && KeyManager.autoLoadKeys) {
+                KeyManager.autoLoadKeys();
+            }
+            break;
+        case 'users':
+            if (UserManager && UserManager.loadUsersList) {
+                UserManager.loadUsersList();
+            }
+            break;
+        case 'profile':
+            if (ProfileManager && ProfileManager.loadCurrentUserProfile) {
+                ProfileManager.loadCurrentUserProfile();
+            }
+            break;
+        case 'servers':
+            showMessage('서버 관리 기능은 준비 중입니다', 'info');
+            break;
+        case 'departments':
+            showMessage('부서 관리 기능은 준비 중입니다', 'info');
+            break;
+    }
+}
+
+// UI 업데이트 (AuthManager에서 호출)
+function updateUI() {
+    console.log('🎨 UI 업데이트 실행');
     const isAuthenticated = !!(AppState.jwtToken && AppState.currentUser);
-    console.log('🔐 인증 상태:', isAuthenticated);
+    console.log('🔐 인증 상태:', isAuthenticated, AppState.currentUser);
     
     if (isAuthenticated) {
-        console.log('✅ 로그인 상태 - 메인 섹션으로 전환');
+        // 로그인 상태
+        console.log('✅ 로그인 상태 - 메인 화면으로 전환');
         
-        // 인증 섹션 숨기기
         if (DOM.authSection) {
             DOM.authSection.classList.add('hidden');
             console.log('  - 인증 섹션 숨김');
         }
-        
-        // 메인 섹션 표시
         if (DOM.keySection) {
             DOM.keySection.classList.remove('hidden');
             console.log('  - 메인 섹션 표시');
         }
-        
-        // 컨테이너 확장
         if (DOM.container) {
             DOM.container.classList.add('container-wide');
             console.log('  - 컨테이너 확장');
@@ -303,125 +260,183 @@ function forceUpdateUI() {
         // 네비게이션 업데이트
         updateNavigation();
         
-        // 키 뷰 표시
-        showKeysView();
+        // 키 뷰로 이동
+        showView('keys');
         
     } else {
-        console.log('❌ 로그아웃 상태 - 인증 섹션으로 전환');
+        // 로그아웃 상태
+        console.log('❌ 로그아웃 상태 - 인증 화면으로 전환');
         
-        // 메인 섹션 숨기기
         if (DOM.keySection) {
             DOM.keySection.classList.add('hidden');
             console.log('  - 메인 섹션 숨김');
         }
-        
-        // 인증 섹션 표시
         if (DOM.authSection) {
             DOM.authSection.classList.remove('hidden');
             console.log('  - 인증 섹션 표시');
         }
-        
-        // 컨테이너 축소
         if (DOM.container) {
             DOM.container.classList.remove('container-wide');
             console.log('  - 컨테이너 축소');
         }
         
-        // 로그인 폼 표시
-        if (DOM.registerView) {
-            DOM.registerView.classList.add('hidden');
-        }
-        if (DOM.loginView) {
-            DOM.loginView.classList.remove('hidden');
-        }
+        showLoginView();
     }
     
-    console.log('✅ 강제 UI 업데이트 완료');
+    console.log('✅ UI 업데이트 완료');
 }
 
+// 네비게이션 업데이트
 function updateNavigation() {
     const isAdmin = AppState.currentUser?.role === 'admin';
-    console.log('📋 네비게이션 업데이트 - 관리자:', isAdmin);
+    console.log('👤 사용자 권한:', AppState.currentUser?.role, '/ 관리자:', isAdmin);
     
-    // 사용자 목록 버튼
+    // 관리자 전용 버튼 표시/숨김
     if (DOM.navUsers) {
-        if (isAdmin) {
-            DOM.navUsers.style.display = 'inline-block';
-            console.log('  - 사용자 관리 버튼 표시');
-        } else {
-            DOM.navUsers.style.display = 'none';
-            console.log('  - 사용자 관리 버튼 숨김');
-        }
+        DOM.navUsers.style.display = isAdmin ? 'inline-block' : 'none';
     }
-}
-
-// 기존 updateUI 함수를 forceUpdateUI로 대체
-function updateUI() {
-    forceUpdateUI();
-}
-
-async function checkAutoLogin() {
-    console.log('🔐 자동 로그인 확인 중...');
+    if (DOM.navDepartments) {
+        DOM.navDepartments.style.display = isAdmin ? 'inline-block' : 'none';
+    }
     
-    if (AppState.jwtToken && typeof AuthManager !== 'undefined') {
+    console.log('✅ 네비게이션 권한 업데이트 완료');
+}
+
+// 로그아웃 처리 (AuthManager에서 호출하거나 직접 호출)
+function handleLogout() {
+    console.log('🚪 로그아웃 처리 (script.js)');
+    
+    const username = AppState.currentUser?.username || '사용자';
+    
+    // 상태 초기화
+    AppState.jwtToken = null;
+    AppState.currentUser = null;
+    localStorage.removeItem('jwtToken');
+    
+    // UI 업데이트
+    updateUI();
+    
+    // 폼 초기화
+    resetForms();
+    
+    showMessage(`${username}님, 로그아웃되었습니다`, 'info');
+}
+
+// 인증 화면 전환
+function showLoginView() {
+    if (DOM.registerView) {
+        DOM.registerView.classList.add('hidden');
+    }
+    if (DOM.loginView) {
+        DOM.loginView.classList.remove('hidden');
+    }
+    console.log('🔐 로그인 화면 표시');
+}
+
+function showRegisterView() {
+    if (DOM.loginView) {
+        DOM.loginView.classList.add('hidden');
+    }
+    if (DOM.registerView) {
+        DOM.registerView.classList.remove('hidden');
+    }
+    console.log('📝 회원가입 화면 표시');
+}
+
+// 폼 초기화
+function resetForms() {
+    const forms = [DOM.loginForm, DOM.registerForm, DOM.profileForm];
+    forms.forEach(form => {
+        if (form) {
+            try {
+                form.reset();
+            } catch (error) {
+                console.warn('폼 초기화 실패:', error);
+            }
+        }
+    });
+}
+
+// 자동 로그인 확인
+async function checkAutoLogin() {
+    if (AppState.jwtToken && AuthManager && AuthManager.validateToken) {
+        console.log('🔍 자동 로그인 확인 중...');
         const isValid = await AuthManager.validateToken();
         if (isValid) {
             console.log('✅ 자동 로그인 성공');
-            Utils?.showToast?.(`안녕하세요, ${AppState.currentUser?.username || '사용자'}님!`, 'success');
+            if (Utils && Utils.showToast) {
+                Utils.showToast(`안녕하세요, ${AppState.currentUser?.username || '사용자'}님!`, 'success');
+            }
+            return true;
         } else {
-            console.log('❌ 자동 로그인 실패');
+            console.log('❌ 토큰 무효, 로그아웃 처리');
         }
+    }
+    return false;
+}
+
+// 메시지 표시
+function showMessage(message, type = 'info') {
+    if (Utils && Utils.showToast) {
+        Utils.showToast(message, type);
     } else {
-        console.log('📝 저장된 토큰 없음');
+        console.log(`[${type.toUpperCase()}] ${message}`);
+        // 중요한 메시지는 alert으로도 표시
+        if (type === 'error' || type === 'warning') {
+            alert(message);
+        }
     }
 }
 
-function setupTokenRefresh() {
-    setInterval(async () => {
-        if (AppState.jwtToken) {
-            try {
-                await AppUtils.apiFetch('/users/me');
-                console.log('🔄 토큰 유효성 확인 완료');
-            } catch (error) {
-                if (error.message.includes('401') || error.message.includes('expired')) {
-                    console.warn('🔐 토큰이 만료되어 자동 로그아웃됩니다');
-                    Utils?.showToast?.('세션이 만료되어 로그아웃됩니다', 'warning');
-                    setTimeout(() => AuthManager?.handleLogout?.(), 2000);
-                }
-            }
-        }
-    }, 5 * 60 * 1000);
-    
-    console.log('🔄 자동 토큰 갱신 설정 완료');
-}
-
-function setupOfflineDetection() {
-    window.addEventListener('offline', () => {
-        console.log('📡 네트워크 연결 끊김');
-        Utils?.showToast?.('인터넷 연결이 끊어졌습니다', 'warning', 5000);
-    });
-
-    window.addEventListener('online', () => {
-        console.log('🌐 네트워크 연결됨');
-        Utils?.showToast?.('인터넷 연결이 복원되었습니다', 'success');
-        AppUtils?.clearError?.();
-    });
-    
-    console.log('📡 오프라인 감지 설정 완료');
-}
-
-// AppUtils - 더 안전한 버전
+// AppUtils - API 통신 및 유틸리티
 window.AppUtils = {
-    showError: function(message) {
-        if (DOM.errorDisplay) {
-            DOM.errorDisplay.textContent = message;
-            DOM.errorDisplay.style.display = 'block';
-        }
-        console.error('앱 에러:', message);
+    apiFetch: async function(endpoint, method = 'GET', body = null) {
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
         
-        setTimeout(() => {
-            this.clearError();
-        }, 10000);
+        if (AppState.jwtToken) {
+            headers['Authorization'] = `Bearer ${AppState.jwtToken}`;
+        }
+        
+        const options = { method, headers };
+        if (body) options.body = JSON.stringify(body);
+        
+        try {
+            console.log(`🌐 API 요청: ${method} ${endpoint}`);
+            
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+            const result = await response.json();
+            
+            console.log(`📦 API 응답 [${method} ${endpoint}]:`, result);
+            
+            if (!response.ok) {
+                const error = new Error(result.error || result.message || `HTTP ${response.status}`);
+                error.status = response.status;
+                throw error;
+            }
+            
+            // 🔥 API 응답 구조 정규화
+            if (result.success && result.data) {
+                // {success: true, data: {...}} 형태면 data 부분 반환
+                console.log('📦 정규화된 데이터:', result.data);
+                return result.data;
+            } else {
+                // 직접 데이터가 온 경우 그대로 반환
+                return result;
+            }
+            
+        } catch (error) {
+            console.error(`❌ API 오류: ${method} ${endpoint}`, error);
+            
+            // Utils가 있으면 에러 처리 위임
+            if (Utils && Utils.handleError) {
+                Utils.handleError(error, `API ${method} ${endpoint}`);
+            }
+            
+            throw error;
+        }
     },
     
     clearError: function() {
@@ -431,103 +446,52 @@ window.AppUtils = {
         }
     },
     
-    apiFetch: async function(endpoint, method = 'GET', body = null) {
-        this.clearError();
-        
-        const headers = { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        };
-        
-        if (AppState.jwtToken) {
-            headers['Authorization'] = `Bearer ${AppState.jwtToken}`;
+    showError: function(message) {
+        if (DOM.errorDisplay) {
+            DOM.errorDisplay.textContent = message;
+            DOM.errorDisplay.style.display = 'block';
         }
-        
-        const options = { 
-            method, 
-            headers,
-            credentials: 'same-origin'
-        };
-        
-        if (body) {
-            options.body = JSON.stringify(body);
-        }
-        
-        try {
-            console.log(`🌐 API 요청: ${method} ${endpoint}`);
-            
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-            const data = await response.json();
-            
-            if (!response.ok) {
-                const error = new Error(data.error || data.message || `HTTP ${response.status}`);
-                error.status = response.status;
-                throw error;
-            }
-            
-            console.log(`✅ API 응답: ${method} ${endpoint} - 성공`);
-            return data;
-            
-        } catch (error) {
-            console.error(`❌ API 오류: ${method} ${endpoint}`, error);
-            
-            if (Utils?.handleError) {
-                Utils.handleError(error, `API ${method} ${endpoint}`);
-            } else {
-                console.error('Utils.handleError를 사용할 수 없음');
-            }
-            
-            throw error;
-        }
+        console.error('앱 에러:', message);
     }
 };
 
-// 전역 함수로 노출
+// 전역 함수 노출 (AuthManager 및 다른 매니저에서 사용)
 window.updateUI = updateUI;
-window.forceUpdateUI = forceUpdateUI;
-window.showKeysView = showKeysView;
-window.showUsersView = showUsersView;
-window.showProfileView = showProfileView;
+window.showView = showView;
+window.handleLogout = handleLogout;
+window.showLoginView = showLoginView;
+window.showRegisterView = showRegisterView;
 
-// 전역 에러 핸들러
-window.addEventListener('error', (event) => {
-    console.error('🚨 전역 에러:', event.error);
-});
-
-// 디버깅 헬퍼
-window.DEBUG_HELPERS = {
-    diagnose: function() {
-        console.log('=== 🔍 전체 진단 ===');
+// 디버깅 도구 (간소화)
+window.DEBUG = {
+    state: function() {
+        console.log('=== 🔍 현재 상태 ===');
         console.log('AppState:', AppState);
-        console.log('DOM 요소들:');
-        Object.entries(DOM).forEach(([key, element]) => {
-            console.log(`  ${key}:`, element ? '✅' : '❌');
-        });
-        console.log('CSS 상태:');
-        if (DOM.authSection) {
-            console.log(`  auth-section: display=${getComputedStyle(DOM.authSection).display}, hidden=${DOM.authSection.classList.contains('hidden')}`);
-        }
-        if (DOM.keySection) {
-            console.log(`  key-section: display=${getComputedStyle(DOM.keySection).display}, hidden=${DOM.keySection.classList.contains('hidden')}`);
-        }
-        console.log('================');
+        console.log('인증 상태:', !!(AppState.jwtToken && AppState.currentUser));
+        console.log('현재 뷰:', AppState.currentView);
+        console.log('===============');
     },
     
-    forceLogin: function() {
-        console.log('🧪 강제 로그인 테스트');
+    view: function(viewName) {
+        console.log('🧪 뷰 전환 테스트:', viewName);
+        showView(viewName);
+    },
+    
+    logout: function() {
+        console.log('🧪 로그아웃 테스트');
+        handleLogout();
+    },
+    
+    login: function() {
+        console.log('🧪 로그인 시뮬레이션');
         AppState.jwtToken = 'test-token';
-        AppState.currentUser = { id: 1, username: 'testuser', role: 'user' };
-        forceUpdateUI();
-    },
-    
-    forceLogout: function() {
-        console.log('🧪 강제 로그아웃 테스트');
-        AppState.jwtToken = null;
-        AppState.currentUser = null;
-        forceUpdateUI();
+        AppState.currentUser = { id: 1, username: 'testuser', role: 'admin' };
+        updateUI();
     }
 };
 
-console.log('🔧 DEBUG_HELPERS.diagnose() - 진단');
-console.log('🔧 DEBUG_HELPERS.forceLogin() - 강제 로그인');
-console.log('🔧 forceUpdateUI() - 강제 UI 업데이트');
+console.log('🔧 === 디버깅 명령어 ===');
+console.log('🔧 DEBUG.state() - 현재 상태 확인');
+console.log('🔧 DEBUG.view("users") - 뷰 전환 테스트');
+console.log('🔧 DEBUG.logout() - 로그아웃 테스트');
+console.log('🔧 DEBUG.login() - 로그인 시뮬레이션');

@@ -56,18 +56,31 @@ window.AuthManager = {
                 password: password
             });
 
-            AppState.jwtToken = data.token;
+            console.log('🔍 로그인 API 전체 응답:', data);
+
+            // 토큰 추출 (중첩된 구조와 평면 구조 모두 지원)
+            AppState.jwtToken = data.token || (data.data && data.data.token);
             localStorage.setItem('jwtToken', AppState.jwtToken);
             
-            // 로그인 후 사용자 정보 설정
-            AppState.currentUser = {
-                id: data.user_id || data.id,
-                username: data.username,
-                role: data.role
-            };
+            // 로그인 후 사용자 정보 설정 (API 응답 구조에 맞춰 수정)
+            if (data.data) {
+                // 응답이 { success: true, message: "", data: { token, username, role } } 형태인 경우
+                AppState.currentUser = {
+                    id: data.data.user_id || data.data.id,
+                    username: data.data.username,
+                    role: data.data.role
+                };
+            } else {
+                // 응답이 직접 { token, username, role } 형태인 경우  
+                AppState.currentUser = {
+                    id: data.user_id || data.id,
+                    username: data.username,
+                    role: data.role
+                };
+            }
             
             console.log('✅ 로그인 성공:', AppState.currentUser);
-            Utils.showToast(`환영합니다, ${username}님!`, 'success');
+            Utils.showToast(`환영합니다, ${AppState.currentUser.username}님!`, 'success');
             
             // UI 업데이트 (먼저 수행)
             updateUI();
@@ -174,19 +187,23 @@ window.AuthManager = {
             // 토큰 검증 API 호출
             const data = await AppUtils.apiFetch('/validate', 'GET');
             
-            if (data.valid) {
+            if (data.valid || data.success) {
+                // 응답 구조에 따라 사용자 정보 추출
+                const userInfo = data.data || data;
                 AppState.currentUser = {
-                    id: data.user_id,
-                    username: data.username,
-                    role: data.role
+                    id: userInfo.user_id || userInfo.id,
+                    username: userInfo.username,
+                    role: userInfo.role
                 };
                 console.log('🔍 토큰 검증 성공, 사용자 정보:', AppState.currentUser);
                 return true;
             }
         } catch (error) {
             console.error('토큰 검증 실패:', error.message);
-            // 토큰이 무효한 경우 로그아웃 처리
-            this.handleLogout();
+            // 토큰이 무효한 경우에만 로그아웃 처리 (404 등의 일반 에러는 제외)
+            if (error.status === 401 || error.status === 403 || error.message.includes('token') || error.message.includes('unauthorized')) {
+                this.handleLogout();
+            }
             return false;
         }
         
@@ -241,7 +258,7 @@ window.AuthManager = {
 
     // 인증 상태 확인
     isAuthenticated: function() {
-        return !!(AppState.jwtToken && AppState.currentUser);
+        return !!(AppState.jwtToken && AppState.currentUser && AppState.currentUser.username);
     },
 
     // 관리자 권한 확인
@@ -263,8 +280,8 @@ window.AuthManager = {
         try {
             const data = await AppUtils.apiFetch('/refresh', 'POST');
             
-            if (data.token) {
-                AppState.jwtToken = data.token;
+            if (data.token || (data.data && data.data.token)) {
+                AppState.jwtToken = data.token || data.data.token;
                 localStorage.setItem('jwtToken', AppState.jwtToken);
                 console.log('🔄 토큰 새로고침 성공');
                 return true;

@@ -14,7 +14,7 @@ window.Utils = {
 
     // 에러 타입 감지
     getErrorType: function(error) {
-        const message = error.message?.toLowerCase() || '';
+        const message = (error && error.message ? error.message : String(error)).toLowerCase();
         
         if (message.includes('network') || message.includes('fetch')) return 'connection';
         if (message.includes('timeout')) return 'timeout';
@@ -30,11 +30,33 @@ window.Utils = {
 
     // 개선된 에러 처리
     handleError: function(error, context = '') {
-        console.error(`[${context}] 에러 발생:`, error);
+        // 에러 메시지 추출
+        let errorMessage = 'Unknown error';
         
-        const errorType = this.getErrorType(error);
+        if (error && typeof error === 'object') {
+            if (error.message) {
+                errorMessage = error.message;
+            } else if (error.toString && typeof error.toString === 'function') {
+                errorMessage = error.toString();
+            } else if (error.data && error.data.error && error.data.error.message) {
+                errorMessage = error.data.error.message;
+            }
+        } else if (typeof error === 'string') {
+            errorMessage = error;
+        }
+        
+        console.error(`[${context}] 에러 발생:`, errorMessage, error);
+        
+        const errorType = this.getErrorType({ message: errorMessage });
+        
+        // 404 에러이고 키 관련 요청인 경우 특별 처리
+        if (error.status === 404 && context.includes('keys')) {
+            this.showToast('SSH 키가 없습니다. 먼저 키를 생성해주세요.', 'info');
+            return 'notfound';
+        }
+        
         const friendlyMessage = this.FRIENDLY_ERRORS[errorType] || 
-                               `알 수 없는 오류가 발생했습니다: ${error.message}`;
+                               `알 수 없는 오류가 발생했습니다: ${errorMessage}`;
         
         // 자동 로그아웃 처리
         if (errorType === 'auth' || errorType === 'expired') {
