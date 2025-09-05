@@ -1,9 +1,9 @@
-// 뷰 관리자
+// 뷰 관리자 - 개선된 버전
 window.ViewManager = {
     currentView: 'keys',
 
     setupEventListeners: function() {
-        // 네비게이션 버튼 이벤트 설정
+        // 네비게이션 버튼 이벤트 설정 (null 체크 추가)
         if (DOM.navKeys) {
             DOM.navKeys.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -420,29 +420,6 @@ window.ViewManager = {
         return null;
     },
 
-    // 초기화
-    init: function() {
-        console.log('ViewManager 초기화');
-        
-        // 히스토리 처리 설정
-        this.setupHistoryHandling();
-        
-        // 반응형 처리
-        window.addEventListener('resize', () => {
-            this.handleResponsiveView();
-        });
-        
-        // 초기 반응형 설정
-        this.handleResponsiveView();
-        
-        // 페이지 언로드 시 뷰 상태 저장
-        window.addEventListener('beforeunload', () => {
-            this.saveViewState();
-        });
-        
-        console.log('ViewManager 초기화 완료');
-    },
-
     // 뷰 히스토리 관리
     getViewHistory: function() {
         return JSON.parse(localStorage.getItem('viewHistory') || '[]');
@@ -467,5 +444,45 @@ window.ViewManager = {
             const previousView = history[history.length - 2];
             this.showView(previousView.view);
         }
+    },
+
+    // 초기화
+    init: function() {
+        console.log('ViewManager 초기화');
+        
+        // 히스토리 처리 설정
+        this.setupHistoryHandling();
+        
+        // 반응형 처리
+        window.addEventListener('resize', () => {
+            this.handleResponsiveView();
+        });
+        
+        // 초기 반응형 설정
+        this.handleResponsiveView();
+        
+        // 페이지 언로드 시 뷰 상태 저장
+        window.addEventListener('beforeunload', () => {
+            this.saveViewState();
+        });
+        
+        console.log('✅ ViewManager 초기화 완료');
+    },
+
+    // 디버깅용 메서드
+    getCurrentViewInfo: function() {
+        return {
+            currentView: this.currentView,
+            isAuthenticated: !!(AppState.jwtToken && AppState.currentUser),
+            isAdmin: this.isAdmin(),
+            availableViews: ['keys', 'users', 'profile', 'servers', 'departments'],
+            userRole: AppState.currentUser?.role || 'none'
+        };
+    },
+
+    // 강제 뷰 새로고침
+    forceRefreshCurrentView: function() {
+        const current = this.currentView;
+        this.showView(current);
     }
 };
