@@ -8,6 +8,19 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// KeyResponse SSH 키 응답 구조체 (표준화)
+type KeyResponse struct {
+	ID        uint   `json:"id"`
+	UserID    uint   `json:"user_id"`
+	Algorithm string `json:"Algorithm"` // 프론트엔드 호환성을 위해 대문자 시작
+	Bits      int    `json:"Bits"`      // 프론트엔드 호환성을 위해 대문자 시작
+	PublicKey string `json:"PublicKey"` // 프론트엔드 호환성을 위해 대문자 시작
+	PEM       string `json:"PEM"`       // PEM 형식 개인키
+	PPK       string `json:"PPK"`       // PPK 형식 개인키
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
 // CreateKey는 SSH 키 쌍을 생성합니다.
 func CreateKey(c echo.Context) error {
 	userID, _ := GetUserID(c)
@@ -29,7 +42,10 @@ func CreateKey(c echo.Context) error {
 	}
 
 	log.Printf("✅ SSH 키 생성 성공 (사용자 ID: %d)", userID)
-	return SuccessWithMessageResponse(c, "SSH 키가 성공적으로 생성되었습니다", sshKey)
+
+	// 표준화된 응답 반환
+	response := convertToKeyResponse(sshKey)
+	return SuccessWithMessageResponse(c, "SSH 키가 성공적으로 생성되었습니다", response)
 }
 
 // CreateKeyForUser는 관리자가 특정 사용자의 SSH 키를 생성합니다 (관리자 전용).
@@ -61,7 +77,10 @@ func CreateKeyForUser(c echo.Context) error {
 	}
 
 	log.Printf("✅ 관리자 SSH 키 생성 성공 (관리자 ID: %d, 대상 ID: %d)", adminUserID, targetUserID)
-	return SuccessWithMessageResponse(c, "SSH 키가 성공적으로 생성되었습니다", sshKey)
+
+	// 표준화된 응답 반환
+	response := convertToKeyResponse(sshKey)
+	return SuccessWithMessageResponse(c, "SSH 키가 성공적으로 생성되었습니다", response)
 }
 
 // GetKey는 사용자의 SSH 키를 조회합니다.
@@ -83,7 +102,10 @@ func GetKey(c echo.Context) error {
 	}
 
 	log.Printf("✅ SSH 키 조회 성공 (사용자 ID: %d)", userID)
-	return SuccessResponse(c, sshKey)
+
+	// 표준화된 응답 반환
+	response := convertToKeyResponse(sshKey)
+	return SuccessResponse(c, response)
 }
 
 // GetUserKey는 관리자가 특정 사용자의 SSH 키를 조회합니다 (관리자 전용).
@@ -115,7 +137,10 @@ func GetUserKey(c echo.Context) error {
 	}
 
 	log.Printf("✅ 관리자 SSH 키 조회 성공 (관리자 ID: %d, 대상 ID: %d)", adminUserID, targetUserID)
-	return SuccessResponse(c, sshKey)
+
+	// 표준화된 응답 반환
+	response := convertToKeyResponse(sshKey)
+	return SuccessResponse(c, response)
 }
 
 // DeleteKey는 사용자의 SSH 키를 삭제합니다.
@@ -195,7 +220,10 @@ func RegenerateKey(c echo.Context) error {
 	}
 
 	log.Printf("✅ SSH 키 재생성 성공 (사용자 ID: %d)", userID)
-	return SuccessWithMessageResponse(c, "SSH 키가 성공적으로 재생성되었습니다", sshKey)
+
+	// 표준화된 응답 반환
+	response := convertToKeyResponse(sshKey)
+	return SuccessWithMessageResponse(c, "SSH 키가 성공적으로 재생성되었습니다", response)
 }
 
 // RegenerateUserKey는 관리자가 특정 사용자의 SSH 키를 재생성합니다 (관리자 전용).
@@ -227,5 +255,23 @@ func RegenerateUserKey(c echo.Context) error {
 	}
 
 	log.Printf("✅ 관리자 SSH 키 재생성 성공 (관리자 ID: %d, 대상 ID: %d)", adminUserID, targetUserID)
-	return SuccessWithMessageResponse(c, "SSH 키가 성공적으로 재생성되었습니다", sshKey)
+
+	// 표준화된 응답 반환
+	response := convertToKeyResponse(sshKey)
+	return SuccessWithMessageResponse(c, "SSH 키가 성공적으로 재생성되었습니다", response)
+}
+
+// convertToKeyResponse SSH 키 모델을 표준화된 응답 형태로 변환
+func convertToKeyResponse(sshKey *model.SSHKey) *KeyResponse {
+	return &KeyResponse{
+		ID:        sshKey.ID,
+		UserID:    sshKey.UserID,
+		Algorithm: "RSA",             // 현재는 RSA만 지원
+		Bits:      4096,              // 현재는 4096비트만 지원
+		PublicKey: sshKey.PublicKey,  // SSH 공개키
+		PEM:       sshKey.PrivateKey, // DB 필드명은 PrivateKey이지만 응답에서는 PEM으로
+		PPK:       sshKey.PPK,        // PPK 형식 개인키
+		CreatedAt: sshKey.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt: sshKey.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
 }

@@ -100,11 +100,12 @@ type SSHKeyPair struct {
 	PrivateKeyPEM []byte // PEM 형식 개인키
 	PublicKeySSH  []byte // SSH authorized_keys 형식 공개키
 	PPKKey        []byte // PuTTY PPK 형식 개인키
-	// Algorithm, Bits 필드 제거 (항상 RSA 4096으로 고정)
 }
 
-// GenerateSSHKeyPair는 SSH 키 쌍을 생성합니다.
+// GenerateSSHKeyPair는 SSH 키 쌍을 생성합니다 (개선됨).
 func GenerateSSHKeyPair(bits int, comment string) (*SSHKeyPair, error) {
+	log.Printf("🔐 SSH 키 생성 시작: %d bits, comment: %s", bits, comment)
+
 	// 기본값 설정
 	if bits <= 0 {
 		bits = 4096
@@ -122,15 +123,21 @@ func GenerateSSHKeyPair(bits int, comment string) (*SSHKeyPair, error) {
 		return nil, fmt.Errorf("failed to generate RSA key: %v", err)
 	}
 
-	// PEM 형식 개인키
+	// PEM 형식 개인키 생성
 	privKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
-	privBlock := pem.Block{
+	privBlock := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: privKeyBytes,
 	}
-	pemKey := pem.EncodeToMemory(&privBlock)
+	pemKey := pem.EncodeToMemory(privBlock)
 
-	// SSH 공개키
+	// PEM 키 검증
+	if len(pemKey) == 0 {
+		return nil, fmt.Errorf("failed to encode PEM private key")
+	}
+	log.Printf("✅ PEM 개인키 생성 완료: %d bytes", len(pemKey))
+
+	// SSH 공개키 생성
 	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SSH public key: %v", err)
@@ -140,17 +147,75 @@ func GenerateSSHKeyPair(bits int, comment string) (*SSHKeyPair, error) {
 	keyStr := strings.TrimSuffix(string(authorizedKey), "\n")
 	publicKey := []byte(keyStr + " " + comment + "\n")
 
+	// 공개키 검증
+	if len(publicKey) == 0 {
+		return nil, fmt.Errorf("failed to generate SSH public key")
+	}
+	log.Printf("✅ SSH 공개키 생성 완료: %d bytes", len(publicKey))
+
 	// PPK 형식 생성
 	ppkKey, err := generatePPKKey(privateKey, comment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate PPK: %v", err)
 	}
 
-	return &SSHKeyPair{
+	// PPK 키 검증
+	if len(ppkKey) == 0 {
+		return nil, fmt.Errorf("failed to generate PPK key")
+	}
+	log.Printf("✅ PPK 키 생성 완료: %d bytes", len(ppkKey))
+
+	result := &SSHKeyPair{
 		PrivateKeyPEM: pemKey,
 		PublicKeySSH:  publicKey,
 		PPKKey:        ppkKey,
-	}, nil
+	}
+
+	// 최종 검증
+	if err := validateSSHKeyPair(result); err != nil {
+		return nil, fmt.Errorf("key pair validation failed: %v", err)
+	}
+
+	log.Printf("✅ SSH 키 쌍 생성 완료 - PEM: %d, Public: %d, PPK: %d bytes",
+		len(result.PrivateKeyPEM), len(result.PublicKeySSH), len(result.PPKKey))
+
+	return result, nil
+}
+
+// validateSSHKeyPair 생성된 키 쌍의 유효성을 검사합니다.
+func validateSSHKeyPair(keyPair *SSHKeyPair) error {
+	if keyPair == nil {
+		return fmt.Errorf("keyPair is nil")
+	}
+
+	if len(keyPair.PrivateKeyPEM) == 0 {
+		return fmt.Errorf("private key PEM is empty")
+	}
+
+	if len(keyPair.PublicKeySSH) == 0 {
+		return fmt.Errorf("public key SSH is empty")
+	}
+
+	if len(keyPair.PPKKey) == 0 {
+		return fmt.Errorf("PPK key is empty")
+	}
+
+	// PEM 형식 검증
+	if !strings.Contains(string(keyPair.PrivateKeyPEM), "BEGIN RSA PRIVATE KEY") {
+		return fmt.Errorf("invalid PEM format")
+	}
+
+	// SSH 공개키 형식 검증
+	if !strings.HasPrefix(string(keyPair.PublicKeySSH), "ssh-rsa ") {
+		return fmt.Errorf("invalid SSH public key format")
+	}
+
+	// PPK 형식 검증
+	if !strings.Contains(string(keyPair.PPKKey), "PuTTY-User-Key-File") {
+		return fmt.Errorf("invalid PPK format")
+	}
+
+	return nil
 }
 
 // generatePPKKey는 PuTTY PPK 형식 키를 생성합니다.
@@ -196,17 +261,33 @@ Private-MAC: %s
 		generateSimpleMAC(publicKeyBytes, privateKeyBytes),
 	)
 
-	return []byte(ppkContent), nil
+	result := []byte(ppkContent)
+	if len(result) == 0 {
+		return nil, fmt.Errorf("PPK content is empty")
+	}
+
+	return result, nil
 }
 
 // marshalRSAPrivateKey는 RSA 개인키를 SSH wire format으로 마샬링합니다.
 func marshalRSAPrivateKey(privateKey *rsa.PrivateKey) ([]byte, error) {
+	if privateKey == nil {
+		return nil, fmt.Errorf("private key is nil")
+	}
+
+	if len(privateKey.Primes) < 2 {
+		return nil, fmt.Errorf("invalid private key: insufficient primes")
+	}
+
 	d := privateKey.D.Bytes()
 	p := privateKey.Primes[0].Bytes()
 	q := privateKey.Primes[1].Bytes()
 
 	// iqmp = q^-1 mod p
 	qInv := new(big.Int).ModInverse(privateKey.Primes[1], privateKey.Primes[0])
+	if qInv == nil {
+		return nil, fmt.Errorf("failed to compute modular inverse")
+	}
 	iqmp := qInv.Bytes()
 
 	var result []byte
@@ -214,6 +295,10 @@ func marshalRSAPrivateKey(privateKey *rsa.PrivateKey) ([]byte, error) {
 	result = append(result, marshalMpint(p)...)
 	result = append(result, marshalMpint(q)...)
 	result = append(result, marshalMpint(iqmp)...)
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("marshaled key is empty")
+	}
 
 	return result, nil
 }
@@ -262,13 +347,25 @@ func generateSimpleMAC(publicKey, privateKey []byte) string {
 
 // sanitizeComment는 안전한 comment를 만듭니다.
 func sanitizeComment(comment string) string {
-	return strings.Map(func(r rune) rune {
+	if comment == "" {
+		return "ssh-key-manager"
+	}
+
+	// 안전한 문자만 유지
+	result := strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
 			(r >= '0' && r <= '9') || r == '-' || r == '_' || r == ' ' {
 			return r
 		}
 		return -1
 	}, comment)
+
+	// 빈 문자열이면 기본값 반환
+	if strings.TrimSpace(result) == "" {
+		return "ssh-key-manager"
+	}
+
+	return result
 }
 
 // ========== 내부 헬퍼 함수들 ==========

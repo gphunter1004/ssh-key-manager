@@ -1,3 +1,4 @@
+// internal/service/key.go
 package service
 
 import (
@@ -306,6 +307,7 @@ func (ks *KeyService) RegenerateSSHKeyPairByAdmin(adminUserID, targetUserID uint
 // ========== 내부 헬퍼 함수들 ==========
 
 // generateKeyForUser 특정 사용자의 SSH 키를 생성하는 공통 로직
+// generateKeyForUser 특정 사용자의 SSH 키를 생성하는 공통 로직 (필드명 수정)
 func (ks *KeyService) generateKeyForUser(user *model.User) (*model.SSHKey, error) {
 	// 키 생성
 	keyPair, err := util.GenerateSSHKeyPair(4096, user.Username)
@@ -318,13 +320,41 @@ func (ks *KeyService) generateKeyForUser(user *model.User) (*model.SSHKey, error
 		)
 	}
 
-	// 키 모델 생성
+	// 키 모델 생성 - DB 컬럼에 정확히 매핑
 	sshKey := &model.SSHKey{
 		UserID:     user.ID,
-		PrivateKey: string(keyPair.PrivateKeyPEM),
-		PublicKey:  string(keyPair.PublicKeySSH),
-		PPK:        string(keyPair.PPKKey),
+		PrivateKey: string(keyPair.PrivateKeyPEM), // pem 컬럼에 저장
+		PublicKey:  string(keyPair.PublicKeySSH),  // public_key 컬럼에 저장
+		PPK:        string(keyPair.PPKKey),        // ppk 컬럼에 저장
 	}
+
+	// 필드 값 검증 (null 체크)
+	if sshKey.PrivateKey == "" {
+		log.Printf("❌ PEM 개인키가 비어있음")
+		return nil, model.NewBusinessError(
+			model.ErrSSHKeyGeneration,
+			"PEM 개인키 생성에 실패했습니다",
+		)
+	}
+
+	if sshKey.PublicKey == "" {
+		log.Printf("❌ 공개키가 비어있음")
+		return nil, model.NewBusinessError(
+			model.ErrSSHKeyGeneration,
+			"공개키 생성에 실패했습니다",
+		)
+	}
+
+	if sshKey.PPK == "" {
+		log.Printf("❌ PPK 키가 비어있음")
+		return nil, model.NewBusinessError(
+			model.ErrSSHKeyGeneration,
+			"PPK 키 생성에 실패했습니다",
+		)
+	}
+
+	log.Printf("✅ 키 생성 완료 - PEM: %d bytes, Public: %d bytes, PPK: %d bytes",
+		len(sshKey.PrivateKey), len(sshKey.PublicKey), len(sshKey.PPK))
 
 	// 데이터베이스에 저장 (기존 키 교체)
 	if err := ks.keyRepo.ReplaceUserKey(user.ID, sshKey); err != nil {
