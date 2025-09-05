@@ -14,7 +14,7 @@ RUN echo "빌드 정보:" && \
     echo "  선택될 바이너리: ${BINARY_NAME}-linux-${TARGETARCH}"
 
 # 필수 도구 설치
-RUN apk add --no-cache upx ca-certificates tzdata putty
+RUN apk add --no-cache upx ca-certificates tzdata putty-tools
 
 WORKDIR /app
 
