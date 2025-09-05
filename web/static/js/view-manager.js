@@ -1,58 +1,58 @@
-// 뷰 관리자 - 개선된 버전
+// 뷰 관리자 - 완전 독립 버전 (네비게이션 완전 담당)
 window.ViewManager = {
     currentView: 'keys',
 
-    setupEventListeners: function() {
-        // 네비게이션 버튼 이벤트 설정 (null 체크 추가)
-        if (DOM.navKeys) {
-            DOM.navKeys.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showView('keys');
-            });
-        }
+    init: function() {
+        console.log('📱 ViewManager 초기화 시작');
         
-        if (DOM.navUsers) {
-            DOM.navUsers.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showView('users');
-            });
-        }
+        // 네비게이션 이벤트 설정
+        this.setupNavigationEvents();
         
-        if (DOM.navProfile) {
-            DOM.navProfile.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showView('profile');
-            });
-        }
+        console.log('✅ ViewManager 초기화 완료');
+        return true;
+    },
+
+    setupNavigationEvents: function() {
+        console.log('🎯 ViewManager 네비게이션 이벤트 설정');
         
-        // 추가 네비게이션 버튼들 (존재하는 경우)
-        const navServers = document.getElementById('nav-servers');
-        const navDepartments = document.getElementById('nav-departments');
+        // 네비게이션 버튼들
+        const navButtons = [
+            { element: DOM.navKeys, view: 'keys', name: '키 관리' },
+            { element: DOM.navUsers, view: 'users', name: '사용자 목록' },
+            { element: DOM.navProfile, view: 'profile', name: '프로필' },
+            { element: DOM.navServers, view: 'servers', name: '서버 관리' },
+            { element: DOM.navDepartments, view: 'departments', name: '부서 관리' }
+        ];
         
-        if (navServers) {
-            navServers.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showView('servers');
-            });
-        }
+        navButtons.forEach(({ element, view, name }) => {
+            if (element) {
+                element.onclick = (e) => {
+                    e.preventDefault();
+                    console.log(`🔘 ${name} 버튼 클릭`);
+                    this.showView(view);
+                };
+                
+                // 버튼 활성화 보장
+                element.style.pointerEvents = 'auto';
+                element.style.cursor = 'pointer';
+                element.disabled = false;
+                
+                console.log(`✅ ${name} 이벤트 설정 완료`);
+            } else {
+                console.warn(`⚠️ ${name} 버튼 요소를 찾을 수 없음`);
+            }
+        });
         
-        if (navDepartments) {
-            navDepartments.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showView('departments');
-            });
-        }
-        
-        console.log('ViewManager 이벤트 리스너 설정 완료');
+        console.log('✅ ViewManager 모든 네비게이션 이벤트 설정 완료');
     },
 
     showView: function(viewName) {
-        console.log('🔄 뷰 전환 요청:', this.currentView, '->', viewName);
+        console.log(`🔄 뷰 전환 요청: ${this.currentView} → ${viewName}`);
         
         // 권한 확인
         if (!this.checkViewAccess(viewName)) {
-            Utils.showToast('해당 기능에 접근할 권한이 없습니다', 'warning');
-            return;
+            this.showMessage('해당 기능에 접근할 권한이 없습니다', 'warning');
+            return false;
         }
         
         // 이전 뷰 정리
@@ -61,49 +61,123 @@ window.ViewManager = {
         // 모든 뷰 숨기기
         this.hideAllViews();
         
-        // 네비게이션 버튼 활성화 상태 초기화
+        // 네비게이션 초기화
         this.resetNavigation();
         
-        // 선택된 뷰 표시 및 초기화
-        const viewShown = this.displayView(viewName);
+        // 선택된 뷰 표시
+        const success = this.displayView(viewName);
         
-        if (viewShown) {
-            // 현재 뷰 상태 업데이트
+        if (success) {
             this.currentView = viewName;
             AppState.currentView = viewName;
-            
-            // URL 해시 업데이트 (선택사항)
-            this.updateUrlHash(viewName);
-            
-            console.log('✅ 뷰 전환 완료:', viewName);
+            console.log(`✅ 뷰 전환 완료: ${viewName}`);
+            return true;
         } else {
-            console.warn('❌ 뷰 전환 실패, 기본 뷰로 이동');
-            this.showView('keys'); // 기본값으로 키 관리 뷰 표시
+            console.warn(`❌ 뷰 전환 실패: ${viewName}`);
+            // 실패 시 키 뷰로 fallback
+            this.showView('keys');
+            return false;
         }
     },
 
     displayView: function(viewName) {
+        const viewElement = DOM[viewName + 'View'];
+        const navElement = DOM['nav' + viewName.charAt(0).toUpperCase() + viewName.slice(1)];
+        
+        if (!viewElement) {
+            console.error(`❌ ${viewName}-view 요소를 찾을 수 없음`);
+            return false;
+        }
+        
+        // 뷰 표시
+        viewElement.classList.remove('hidden');
+        console.log(`📱 ${viewName}-view 활성화`);
+        
+        // 네비게이션 활성화
+        if (navElement) {
+            navElement.classList.add('active');
+            console.log(`🎯 nav-${viewName} 활성화`);
+        }
+        
+        // 뷰별 초기화
+        this.initializeView(viewName);
+        
+        return true;
+    },
+
+    initializeView: function(viewName) {
+        console.log(`🚀 ${viewName} 뷰 초기화`);
+        
         switch(viewName) {
             case 'keys':
-                return this.showKeysView();
+                this.initializeKeysView();
+                break;
             case 'users':
-                return this.showUsersView();
+                this.initializeUsersView();
+                break;
             case 'profile':
-                return this.showProfileView();
+                this.initializeProfileView();
+                break;
             case 'servers':
-                return this.showServersView();
+                this.initializeServersView();
+                break;
             case 'departments':
-                return this.showDepartmentsView();
+                this.initializeDepartmentsView();
+                break;
             default:
-                console.warn('알 수 없는 뷰:', viewName);
-                return false;
+                console.warn(`알 수 없는 뷰: ${viewName}`);
+        }
+    },
+
+    initializeKeysView: function() {
+        // KeyManager에게 키 로드 요청
+        if (typeof KeyManager !== 'undefined' && KeyManager.autoLoadKeys) {
+            KeyManager.autoLoadKeys();
+        } else {
+            console.warn('⚠️ KeyManager를 찾을 수 없음');
+        }
+    },
+
+    initializeUsersView: function() {
+        // UserManager에게 사용자 목록 로드 요청
+        if (typeof UserManager !== 'undefined' && UserManager.loadUsersList) {
+            UserManager.loadUsersList();
+        } else {
+            console.warn('⚠️ UserManager를 찾을 수 없음');
+        }
+    },
+
+    initializeProfileView: function() {
+        // ProfileManager에게 프로필 로드 요청
+        if (typeof ProfileManager !== 'undefined' && ProfileManager.loadCurrentUserProfile) {
+            ProfileManager.loadCurrentUserProfile();
+        } else {
+            console.warn('⚠️ ProfileManager를 찾을 수 없음');
+        }
+    },
+
+    initializeServersView: function() {
+        // 서버 관리 기능 (준비 중)
+        if (typeof ServerManager !== 'undefined' && ServerManager.loadServersList) {
+            ServerManager.loadServersList();
+        } else {
+            this.showMessage('서버 관리 기능은 준비 중입니다', 'info');
+        }
+    },
+
+    initializeDepartmentsView: function() {
+        // 부서 관리 기능 (준비 중)
+        if (typeof DepartmentManager !== 'undefined' && DepartmentManager.loadDepartmentsList) {
+            DepartmentManager.loadDepartmentsList();
+        } else {
+            this.showMessage('부서 관리 기능은 준비 중입니다', 'info');
         }
     },
 
     hideAllViews: function() {
         const views = ['keys', 'users', 'profile', 'servers', 'departments'];
         views.forEach(view => {
-            const viewElement = document.getElementById(`${view}-view`);
+            const viewElement = DOM[view + 'View'];
             if (viewElement) {
                 viewElement.classList.add('hidden');
             }
@@ -111,152 +185,26 @@ window.ViewManager = {
     },
 
     resetNavigation: function() {
-        const navButtons = ['nav-keys', 'nav-users', 'nav-profile', 'nav-servers', 'nav-departments'];
-        navButtons.forEach(navId => {
-            const navElement = document.getElementById(navId);
+        const navs = ['navKeys', 'navUsers', 'navProfile', 'navServers', 'navDepartments'];
+        navs.forEach(nav => {
+            const navElement = DOM[nav];
             if (navElement) {
                 navElement.classList.remove('active');
             }
         });
     },
 
-    showKeysView: function() {
-        const keysView = document.getElementById('keys-view');
-        const navKeys = document.getElementById('nav-keys');
-        
-        if (!keysView) {
-            console.error('❌ keys-view 요소를 찾을 수 없습니다');
-            return false;
-        }
-        
-        keysView.classList.remove('hidden');
-        if (navKeys) {
-            navKeys.classList.add('active');
-        }
-        
-        console.log('✅ 키 관리 뷰 활성화');
-        
-        // 키 뷰 초기화 - 자동 로드
-        if (typeof KeyManager !== 'undefined' && KeyManager.autoLoadKeys) {
-            KeyManager.autoLoadKeys();
-        }
-        
-        return true;
-    },
-
-    showUsersView: function() {
-        const usersView = document.getElementById('users-view');
-        const navUsers = document.getElementById('nav-users');
-        
-        if (!usersView) {
-            console.error('❌ users-view 요소를 찾을 수 없습니다');
-            return false;
-        }
-        
-        usersView.classList.remove('hidden');
-        if (navUsers) {
-            navUsers.classList.add('active');
-        }
-        
-        console.log('✅ 사용자 목록 뷰 활성화');
-        
-        // 사용자 목록 로드
-        if (typeof UserManager !== 'undefined' && UserManager.loadUsersList) {
-            UserManager.loadUsersList();
-        }
-        
-        return true;
-    },
-
-    showProfileView: function() {
-        const profileView = document.getElementById('profile-view');
-        const navProfile = document.getElementById('nav-profile');
-        
-        if (!profileView) {
-            console.error('❌ profile-view 요소를 찾을 수 없습니다');
-            return false;
-        }
-        
-        profileView.classList.remove('hidden');
-        if (navProfile) {
-            navProfile.classList.add('active');
-        }
-        
-        console.log('✅ 프로필 뷰 활성화');
-        
-        // 프로필 정보 로드
-        if (typeof ProfileManager !== 'undefined' && ProfileManager.loadCurrentUserProfile) {
-            ProfileManager.loadCurrentUserProfile();
-        }
-        
-        return true;
-    },
-
-    showServersView: function() {
-        const serversView = document.getElementById('servers-view');
-        const navServers = document.getElementById('nav-servers');
-        
-        if (!serversView) {
-            console.error('❌ servers-view 요소를 찾을 수 없습니다');
-            return false;
-        }
-        
-        serversView.classList.remove('hidden');
-        if (navServers) {
-            navServers.classList.add('active');
-        }
-        
-        console.log('✅ 서버 관리 뷰 활성화');
-        
-        // 서버 목록 로드 (ServerManager가 있는 경우)
-        if (typeof ServerManager !== 'undefined' && ServerManager.loadServersList) {
-            ServerManager.loadServersList();
-        }
-        
-        return true;
-    },
-
-    showDepartmentsView: function() {
-        const departmentsView = document.getElementById('departments-view');
-        const navDepartments = document.getElementById('nav-departments');
-        
-        if (!departmentsView) {
-            console.error('❌ departments-view 요소를 찾을 수 없습니다');
-            return false;
-        }
-        
-        departmentsView.classList.remove('hidden');
-        if (navDepartments) {
-            navDepartments.classList.add('active');
-        }
-        
-        console.log('✅ 부서 관리 뷰 활성화');
-        
-        // 부서 목록 로드 (DepartmentManager가 있는 경우)
-        if (typeof DepartmentManager !== 'undefined' && DepartmentManager.loadDepartmentsList) {
-            DepartmentManager.loadDepartmentsList();
-        }
-        
-        return true;
-    },
-
     cleanupCurrentView: function() {
         // 현재 뷰에서 정리가 필요한 작업 수행
         switch(this.currentView) {
             case 'keys':
-                // 키 뷰 정리 (예: 타이머 정리, 이벤트 리스너 제거 등)
+                // 키 뷰 정리 작업
                 break;
             case 'users':
-                // 사용자 뷰 정리
+                // 사용자 뷰 정리 작업
                 break;
             case 'profile':
-                // 프로필 뷰 정리
-                break;
-            case 'servers':
-                // 서버 뷰 정리
-                break;
-            case 'departments':
-                // 부서 뷰 정리
+                // 프로필 뷰 정리 작업
                 break;
         }
         
@@ -266,7 +214,7 @@ window.ViewManager = {
         }
         
         // 에러 메시지 클리어
-        if (typeof AppUtils !== 'undefined' && AppUtils.clearError) {
+        if (AppUtils && AppUtils.clearError) {
             AppUtils.clearError();
         }
     },
@@ -275,77 +223,63 @@ window.ViewManager = {
     checkViewAccess: function(viewName) {
         // 로그인 상태 확인
         if (!AppState.jwtToken || !AppState.currentUser) {
-            console.warn('로그인이 필요한 뷰 접근 시도:', viewName);
+            console.warn(`❌ 미인증 상태에서 ${viewName} 뷰 접근 시도`);
             return false;
         }
         
         // 특정 뷰에 대한 권한 확인
         switch(viewName) {
             case 'users':
-                // 사용자 목록은 관리자만 접근 가능
-                return this.isAdmin();
             case 'departments':
-                // 부서 관리는 관리자만 접근 가능 (있는 경우)
-                return this.isAdmin();
+                // 관리자만 접근 가능
+                if (AppState.currentUser.role !== 'admin') {
+                    console.warn(`❌ 비관리자가 ${viewName} 뷰 접근 시도`);
+                    return false;
+                }
+                break;
             case 'profile':
-                // 프로필은 본인만 볼 수 있음
-                return true;
             case 'keys':
-                // 키 관리는 본인 키만 관리 가능
-                return true;
             case 'servers':
-                // 서버 관리는 모든 로그인 사용자 (구현에 따라 다름)
-                return true;
+                // 모든 로그인 사용자 접근 가능
+                break;
             default:
-                return true;
+                console.warn(`❌ 알 수 없는 뷰: ${viewName}`);
+                return false;
         }
+        
+        return true;
     },
 
-    // 관리자 권한 확인
-    isAdmin: function() {
-        return AppState.currentUser?.role === 'admin';
-    },
-
-    // 네비게이션 업데이트 (로그인 상태에 따라)
+    // 네비게이션 업데이트 (권한에 따른 버튼 표시/숨김)
     updateNavigation: function() {
-        const isAdmin = this.isAdmin();
-        const usersNav = document.getElementById('nav-users');
-        const departmentsNav = document.getElementById('nav-departments');
+        const isAdmin = AppState.currentUser?.role === 'admin';
+        console.log(`👤 네비게이션 권한 업데이트 - 관리자: ${isAdmin}`);
         
-        console.log(`👤 사용자 권한: ${AppState.currentUser?.role || 'unknown'}, 관리자: ${isAdmin}`);
+        // 관리자 전용 버튼들
+        const adminButtons = [
+            { element: DOM.navUsers, name: '사용자 목록' },
+            { element: DOM.navDepartments, name: '부서 관리' }
+        ];
         
-        // 사용자 목록 네비게이션
-        if (usersNav) {
-            if (isAdmin) {
-                usersNav.style.display = 'inline-block';
-                usersNav.title = '사용자 목록 관리';
-                console.log('✅ 사용자 관리 버튼 표시');
-            } else {
-                usersNav.style.display = 'none';
-                console.log('❌ 사용자 관리 버튼 숨김');
-                
-                // 현재 사용자 뷰에 있으면 키 관리로 이동
-                if (this.currentView === 'users') {
-                    console.log('🔄 사용자 뷰에서 키 뷰로 이동');
-                    this.showView('keys');
+        adminButtons.forEach(({ element, name }) => {
+            if (element) {
+                if (isAdmin) {
+                    element.style.display = 'inline-block';
+                    console.log(`✅ ${name} 버튼 표시`);
+                } else {
+                    element.style.display = 'none';
+                    console.log(`❌ ${name} 버튼 숨김`);
                 }
             }
+        });
+        
+        // 현재 뷰가 접근 불가능하면 키 뷰로 이동
+        if (!this.checkViewAccess(this.currentView)) {
+            console.log(`🔄 현재 뷰(${this.currentView}) 접근 불가, 키 뷰로 이동`);
+            this.showView('keys');
         }
         
-        // 부서 관리 네비게이션 (있는 경우)
-        if (departmentsNav) {
-            if (isAdmin) {
-                departmentsNav.style.display = 'inline-block';
-                departmentsNav.title = '부서 관리';
-            } else {
-                departmentsNav.style.display = 'none';
-                
-                // 현재 부서 뷰에 있으면 키 관리로 이동
-                if (this.currentView === 'departments') {
-                    this.showView('keys');
-                }
-            }
-        }
+        console.log('✅ 네비게이션 권한 업데이트 완료');
     },
 
     // URL 해시를 기반으로 뷰 복원
@@ -377,52 +311,25 @@ window.ViewManager = {
             this.restoreViewFromHash();
         });
         
-        console.log('히스토리 처리 설정 완료');
+        console.log('🔄 브라우저 히스토리 처리 설정 완료');
     },
 
-    // 반응형 뷰 처리
-    handleResponsiveView: function() {
-        const isMobile = window.innerWidth <= 768;
-        
-        if (isMobile) {
-            // 모바일에서는 한 번에 하나의 뷰만 표시
-            console.log('모바일 뷰 모드 활성화');
-            document.body.classList.add('mobile-view');
-        } else {
-            // 데스크톱에서는 사이드바 등 추가 UI 요소 표시 가능
-            console.log('데스크톱 뷰 모드 활성화');
-            document.body.classList.remove('mobile-view');
+    // 이전 뷰로 돌아가기
+    goToPreviousView: function() {
+        const viewHistory = this.getViewHistory();
+        if (viewHistory.length >= 2) {
+            const previousView = viewHistory[viewHistory.length - 2];
+            this.showView(previousView.view);
         }
-    },
-
-    // 뷰 상태 저장/복원
-    saveViewState: function() {
-        const viewState = {
-            currentView: this.currentView,
-            timestamp: Date.now()
-        };
-        localStorage.setItem('viewState', JSON.stringify(viewState));
-    },
-
-    restoreViewState: function() {
-        try {
-            const savedState = localStorage.getItem('viewState');
-            if (savedState) {
-                const viewState = JSON.parse(savedState);
-                // 1시간 이내의 상태만 복원
-                if (Date.now() - viewState.timestamp < 3600000) {
-                    return viewState.currentView;
-                }
-            }
-        } catch (error) {
-            console.warn('뷰 상태 복원 실패:', error);
-        }
-        return null;
     },
 
     // 뷰 히스토리 관리
     getViewHistory: function() {
-        return JSON.parse(localStorage.getItem('viewHistory') || '[]');
+        try {
+            return JSON.parse(localStorage.getItem('viewHistory') || '[]');
+        } catch (error) {
+            return [];
+        }
     },
 
     addToViewHistory: function(viewName) {
@@ -434,55 +341,42 @@ window.ViewManager = {
             history.shift();
         }
         
-        localStorage.setItem('viewHistory', JSON.stringify(history));
-    },
-
-    // 이전 뷰로 돌아가기
-    goToPreviousView: function() {
-        const history = this.getViewHistory();
-        if (history.length >= 2) {
-            const previousView = history[history.length - 2];
-            this.showView(previousView.view);
+        try {
+            localStorage.setItem('viewHistory', JSON.stringify(history));
+        } catch (error) {
+            console.warn('뷰 히스토리 저장 실패:', error);
         }
     },
 
-    // 초기화
-    init: function() {
-        console.log('ViewManager 초기화');
-        
-        // 히스토리 처리 설정
-        this.setupHistoryHandling();
-        
-        // 반응형 처리
-        window.addEventListener('resize', () => {
-            this.handleResponsiveView();
-        });
-        
-        // 초기 반응형 설정
-        this.handleResponsiveView();
-        
-        // 페이지 언로드 시 뷰 상태 저장
-        window.addEventListener('beforeunload', () => {
-            this.saveViewState();
-        });
-        
-        console.log('✅ ViewManager 초기화 완료');
+    // 강제 뷰 새로고침
+    refreshCurrentView: function() {
+        const current = this.currentView;
+        console.log(`🔄 현재 뷰(${current}) 새로고침`);
+        this.showView(current);
     },
 
-    // 디버깅용 메서드
+    // 메시지 표시 (Utils 의존성 제거)
+    showMessage: function(message, type = 'info') {
+        if (typeof Utils !== 'undefined' && Utils.showToast) {
+            Utils.showToast(message, type);
+        } else {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            
+            // 중요한 메시지는 alert으로도 표시
+            if (type === 'error' || type === 'warning') {
+                alert(message);
+            }
+        }
+    },
+
+    // 현재 뷰 정보 가져오기 (디버깅용)
     getCurrentViewInfo: function() {
         return {
             currentView: this.currentView,
             isAuthenticated: !!(AppState.jwtToken && AppState.currentUser),
-            isAdmin: this.isAdmin(),
-            availableViews: ['keys', 'users', 'profile', 'servers', 'departments'],
-            userRole: AppState.currentUser?.role || 'none'
+            userRole: AppState.currentUser?.role || 'none',
+            canAccessUsers: this.checkViewAccess('users'),
+            canAccessDepartments: this.checkViewAccess('departments')
         };
-    },
-
-    // 강제 뷰 새로고침
-    forceRefreshCurrentView: function() {
-        const current = this.currentView;
-        this.showView(current);
     }
 };

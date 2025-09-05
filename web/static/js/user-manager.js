@@ -1,9 +1,21 @@
-// 사용자 관리자
+// 사용자 관리자 - 완전 독립 버전
 window.UserManager = {
     users: [],
     stats: null,
 
+    init: function() {
+        console.log('👥 UserManager 초기화 시작');
+        
+        // 이벤트 리스너 설정
+        this.setupEventListeners();
+        
+        console.log('✅ UserManager 초기화 완료');
+        return true;
+    },
+
     setupEventListeners: function() {
+        console.log('🎯 UserManager 이벤트 리스너 설정');
+        
         // 액션 기반 이벤트 위임
         document.addEventListener('click', (e) => {
             const action = e.target.dataset.action;
@@ -27,11 +39,11 @@ window.UserManager = {
             }
         });
         
-        console.log('UserManager 이벤트 리스너 설정 완료');
+        console.log('✅ UserManager 이벤트 리스너 설정 완료');
     },
 
     loadUsersList: async function() {
-        console.log('사용자 목록 로드 시작');
+        console.log('📋 사용자 목록 로드 시작');
         
         // 관리자 권한 확인
         if (!this.isAdmin()) {
@@ -46,7 +58,7 @@ window.UserManager = {
             const users = await AppUtils.apiFetch('/admin/users', 'GET');
             
             this.users = Array.isArray(users) ? users : (users.items || users.data || []);
-            console.log(`사용자 목록 로드 성공: ${this.users.length}명`);
+            console.log(`✅ 사용자 목록 로드 성공: ${this.users.length}명`);
             
             // 사용자 목록 표시
             this.displayUsersList(this.users);
@@ -55,8 +67,8 @@ window.UserManager = {
             this.updateStats(this.users);
             
         } catch (error) {
-            console.error('사용자 목록 로드 실패:', error.message);
-            this.showError('사용자 목록을 불러올 수 없습니다');
+            console.error('❌ 사용자 목록 로드 실패:', error.message);
+            this.showError('사용자 목록을 불러올 수 없습니다: ' + error.message);
             this.clearStats();
         } finally {
             this.clearLoadingState();
@@ -64,8 +76,13 @@ window.UserManager = {
     },
 
     displayUsersList: function(users) {
-        console.log('사용자 목록 표시 중...');
+        console.log(`👥 사용자 목록 표시: ${users.length}명`);
         
+        if (!DOM.usersList) {
+            console.error('❌ users-list 요소를 찾을 수 없음');
+            return;
+        }
+
         // 목록 초기화
         DOM.usersList.innerHTML = '';
         
@@ -80,7 +97,7 @@ window.UserManager = {
             DOM.usersList.appendChild(userCard);
         });
         
-        console.log(`사용자 카드 ${users.length}개 생성 완료`);
+        console.log(`✅ 사용자 카드 ${users.length}개 생성 완료`);
     },
 
     createUserCard: function(user) {
@@ -144,42 +161,54 @@ window.UserManager = {
     },
 
     showUserDetail: async function(userId) {
-        console.log('사용자 상세 정보 요청:', userId);
+        console.log(`👤 사용자 상세 정보 요청: ${userId}`);
         
         try {
-            // 모달 로딩 상태
-            ModalManager.showLoadingModal('사용자 정보를 불러오는 중...');
+            // ModalManager에게 로딩 모달 요청
+            if (typeof ModalManager !== 'undefined' && ModalManager.showLoadingModal) {
+                ModalManager.showLoadingModal('사용자 정보를 불러오는 중...');
+            }
             
             const userData = await AppUtils.apiFetch(`/admin/users/${userId}`, 'GET');
             
-            console.log('사용자 상세 정보 로드 성공:', userData.username);
+            console.log('✅ 사용자 상세 정보 로드 성공:', userData.username);
             
-            // 상세 정보 표시
-            ModalManager.displayUserDetail(userData);
+            // ModalManager에게 상세 정보 표시 요청
+            if (typeof ModalManager !== 'undefined' && ModalManager.displayUserDetail) {
+                ModalManager.displayUserDetail(userData);
+            } else {
+                console.warn('⚠️ ModalManager를 찾을 수 없음');
+                this.showMessage(`사용자 정보: ${userData.username} (${userData.role})`, 'info');
+            }
             
         } catch (error) {
-            console.error('사용자 상세 정보 로드 실패:', error.message);
-            ModalManager.showErrorModal('사용자 정보를 불러올 수 없습니다.');
+            console.error('❌ 사용자 상세 정보 로드 실패:', error.message);
+            
+            if (typeof ModalManager !== 'undefined' && ModalManager.showErrorModal) {
+                ModalManager.showErrorModal('사용자 정보를 불러올 수 없습니다.');
+            } else {
+                this.showMessage('사용자 정보를 불러올 수 없습니다: ' + error.message, 'error');
+            }
         }
     },
 
     confirmDeleteUser: async function(userId, username) {
-        console.log('사용자 삭제 확인:', userId, username);
+        console.log(`🗑️ 사용자 삭제 확인: ${userId} (${username})`);
         
         if (!confirm(`정말로 사용자 "${username}"를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
             return;
         }
 
         try {
-            Utils.setLoading(true, '사용자 삭제 중...');
+            this.setLoading(true, '사용자 삭제 중...');
             
             await AppUtils.apiFetch(`/admin/users/${userId}`, 'DELETE');
             
-            Utils.showToast(`사용자 "${username}"가 삭제되었습니다`, 'success');
-            console.log('사용자 삭제 성공:', username);
+            this.showMessage(`사용자 "${username}"가 삭제되었습니다`, 'success');
+            console.log('✅ 사용자 삭제 성공:', username);
             
             // 모달이 열려있으면 닫기
-            if (ModalManager.isOpen) {
+            if (typeof ModalManager !== 'undefined' && ModalManager.isOpen) {
                 ModalManager.closeModal();
             }
             
@@ -187,10 +216,10 @@ window.UserManager = {
             this.loadUsersList();
             
         } catch (error) {
-            console.error('사용자 삭제 실패:', error.message);
-            Utils.showToast('사용자 삭제에 실패했습니다', 'error');
+            console.error('❌ 사용자 삭제 실패:', error.message);
+            this.showMessage('사용자 삭제에 실패했습니다: ' + error.message, 'error');
         } finally {
-            Utils.setLoading(false);
+            this.setLoading(false);
         }
     },
 
@@ -216,7 +245,7 @@ window.UserManager = {
             coverage: coveragePercent
         };
         
-        console.log('사용자 통계 업데이트:', this.stats);
+        console.log('📊 사용자 통계 업데이트:', this.stats);
         
         // 통계 색상 업데이트
         this.updateStatsColors(coveragePercent);
@@ -269,6 +298,7 @@ window.UserManager = {
                 </div>
             `;
         }
+        this.clearStats();
     },
 
     showError: function(message) {
@@ -277,17 +307,18 @@ window.UserManager = {
                 <div class="error-message">
                     <div class="icon">❌</div>
                     <h3>오류 발생</h3>
-                    <p>${message}</p>
+                    <p>${this.escapeHtml(message)}</p>
                     <button data-action="reload-users" class="btn-primary">다시 시도</button>
                 </div>
             `;
         }
+        this.clearStats();
     },
 
     // 사용자 검색 및 필터링
     filterUsers: function(searchTerm, keyFilter = 'all') {
         if (!this.users || this.users.length === 0) {
-            console.log('필터링할 사용자가 없음');
+            console.log('ℹ️ 필터링할 사용자가 없음');
             return;
         }
         
@@ -309,7 +340,7 @@ window.UserManager = {
             filteredUsers = filteredUsers.filter(user => !user.has_ssh_key);
         }
         
-        console.log(`사용자 필터링 결과: ${filteredUsers.length}/${this.users.length}`);
+        console.log(`🔍 사용자 필터링 결과: ${filteredUsers.length}/${this.users.length}`);
         
         // 필터링된 목록 표시
         this.displayUsersList(filteredUsers);
@@ -333,7 +364,7 @@ window.UserManager = {
 
     // 새로고침
     refresh: async function() {
-        console.log('사용자 목록 새로고침');
+        console.log('🔄 사용자 목록 새로고침');
         await this.loadUsersList();
     },
 
@@ -347,13 +378,47 @@ window.UserManager = {
         return AppState.currentUser && AppState.currentUser.id === userId;
     },
 
+    // 로딩 상태 관리
+    setLoading: function(isLoading, message = '처리 중...') {
+        if (typeof Utils !== 'undefined' && Utils.setLoading) {
+            Utils.setLoading(isLoading, message);
+        } else {
+            console.log(`로딩 상태: ${isLoading} - ${message}`);
+        }
+    },
+
+    // 메시지 표시
+    showMessage: function(message, type = 'info') {
+        if (typeof Utils !== 'undefined' && Utils.showToast) {
+            Utils.showToast(message, type);
+        } else {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            
+            // 중요한 메시지는 alert으로도 표시
+            if (type === 'error' || type === 'warning') {
+                alert(message);
+            }
+        }
+    },
+
     // HTML 이스케이프 유틸리티
     escapeHtml: function(unsafe) {
+        if (!unsafe) return '';
         return unsafe
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    },
+
+    // 디버깅 정보
+    getStats: function() {
+        return {
+            totalUsers: this.users.length,
+            currentStats: this.stats,
+            isAdmin: this.isAdmin(),
+            currentUser: AppState.currentUser
+        };
     }
 };
