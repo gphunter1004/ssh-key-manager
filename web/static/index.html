@@ -85,12 +85,30 @@
             <div class="action-bar">
                 <h3>서버 관리</h3>
                 <div class="action-buttons">
-                     <button data-action="server-create" class="btn-primary">서버 추가</button>
+                    <button data-action="server-create-form" class="btn-primary">서버 추가</button>
+                    <button data-action="deploy-all-keys" class="btn-success">전체 서버에 키 배포</button>
                 </div>
             </div>
-             <div id="servers-list" class="cards-container">
-                <div class="empty-state">등록된 서버가 없습니다. '서버 추가' 버튼을 눌러 시작하세요.</div>
-             </div>
+
+            <div id="server-form-modal" class="form-container hidden">
+                <h4>새 서버 추가</h4>
+                <form id="server-form">
+                    <div class="form-row">
+                        <div class="form-group"><label for="server-name">서버명</label><input type="text" id="server-name" name="name" required></div>
+                        <div class="form-group"><label for="server-host">호스트 (IP 또는 도메인)</label><input type="text" id="server-host" name="host" required></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="server-port">포트</label><input type="number" id="server-port" name="port" value="22"></div>
+                        <div class="form-group"><label for="server-username">SSH 사용자명</label><input type="text" id="server-username" name="username" required></div>
+                    </div>
+                    <div class="form-group"><label for="server-description">설명</label><textarea id="server-description" name="description"></textarea></div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">저장</button>
+                        <button type="button" data-action="server-form-cancel" class="btn-secondary">취소</button>
+                    </div>
+                </form>
+            </div>
+            <div id="servers-list" class="cards-container"></div>
         </div>
 
         <div id="users-view" class="view-section hidden">
@@ -105,14 +123,12 @@
                     <span id="users-with-keys" class="stat-value">-</span>
                 </div>
             </div>
-            <div id="users-list" class="users-list">
-                </div>
+            <div id="users-list" class="cards-container"></div>
         </div>
 
         <div id="profile-view" class="view-section hidden">
             <h2>프로필 관리</h2>
-            <div id="current-user-info">
-                </div>
+            <div id="current-user-info"></div>
             <div class="form-container" style="margin-top: 2rem;">
                  <h3>프로필 업데이트</h3>
                 <form id="profile-form">
@@ -142,8 +158,7 @@
             <h3>상세 정보</h3>
             <button class="close" data-action="close-modal">&times;</button>
         </div>
-        <div class="modal-content-area" id="user-detail-content">
-            </div>
+        <div class="modal-content-area" id="user-detail-content"></div>
     </div>
 </div>
 
@@ -153,20 +168,19 @@
             <h3>키 배포</h3>
             <button class="close" data-action="close-modal">&times;</button>
         </div>
-        <div class="modal-content-area" id="deploy-content">
-            </div>
+        <div class="modal-content-area" id="deploy-content"></div>
     </div>
 </div>
-
 
 <script src="js/utils.js"></script>
 <script src="js/modal-manager.js"></script>
 <script src="js/copy-manager.js"></script>
-<script src="js/view-manager.js"></script>
 <script src="js/auth-manager.js"></script>
+<script src="js/view-manager.js"></script>
 <script src="js/key-manager.js"></script>
 <script src="js/user-manager.js"></script>
 <script src="js/profile-manager.js"></script>
+<script src="js/server-manager.js"></script>
 <script src="script.js"></script>
 
 </body>
