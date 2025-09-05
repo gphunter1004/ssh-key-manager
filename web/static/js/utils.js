@@ -45,7 +45,7 @@ window.Utils = {
             }, 1500);
         }
         
-        AppUtils.showError(friendlyMessage);
+        this.showToast(friendlyMessage, 'error');
         return errorType;
     },
 
@@ -90,7 +90,8 @@ window.Utils = {
             opacity: '0',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '8px',
+            cursor: 'pointer'
         });
         
         // 타입별 색상
@@ -114,6 +115,11 @@ window.Utils = {
         setTimeout(() => {
             this.removeToast();
         }, duration);
+        
+        // 클릭으로 제거
+        toast.addEventListener('click', () => {
+            this.removeToast();
+        });
     },
 
     removeToast: function() {
@@ -166,25 +172,26 @@ window.Utils = {
         const indicator = document.createElement('div');
         indicator.id = 'loading-indicator';
         indicator.innerHTML = `
-            <div class="loading-overlay">
-                <div class="loading-spinner"></div>
-                <div class="loading-message">${message}</div>
+            <div class="loading-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:9999;">
+                <div style="background:white;padding:30px;border-radius:12px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+                    <div class="loading-spinner" style="width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #3498db;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 15px;"></div>
+                    <div class="loading-message">${message}</div>
+                </div>
             </div>
         `;
         
-        // 스타일
-        indicator.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        `;
+        // 스피너 애니메이션 CSS 추가
+        if (!document.getElementById('spinner-style')) {
+            const style = document.createElement('style');
+            style.id = 'spinner-style';
+            style.textContent = `
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
         
         document.body.appendChild(indicator);
     },
@@ -253,6 +260,31 @@ window.Utils = {
         
         remove: function(key) {
             localStorage.removeItem(`ssh_setting_${key}`);
+        },
+
+        // 모든 설정 조회
+        getAll: function() {
+            const settings = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('ssh_setting_')) {
+                    const settingKey = key.replace('ssh_setting_', '');
+                    settings[settingKey] = this.get(settingKey);
+                }
+            }
+            return settings;
+        },
+
+        // 모든 설정 초기화
+        clear: function() {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('ssh_setting_')) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
         }
     },
 
@@ -266,6 +298,20 @@ window.Utils = {
             };
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
+        };
+    },
+
+    // 스로틀링
+    throttle: function(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
         };
     },
 
@@ -318,5 +364,141 @@ window.Utils = {
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    },
+
+    // URL 파라미터 파싱
+    parseUrlParams: function(url = window.location.href) {
+        const params = {};
+        const urlObj = new URL(url);
+        urlObj.searchParams.forEach((value, key) => {
+            params[key] = value;
+        });
+        return params;
+    },
+
+    // 쿠키 관리
+    Cookie: {
+        get: function(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        },
+
+        set: function(name, value, days = 7) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+        },
+
+        remove: function(name) {
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+        }
+    },
+
+    // 브라우저 정보
+    getBrowserInfo: function() {
+        const ua = navigator.userAgent;
+        const browser = {
+            name: 'Unknown',
+            version: 'Unknown',
+            isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua),
+            isTouch: 'ontouchstart' in window
+        };
+
+        if (ua.includes('Chrome')) browser.name = 'Chrome';
+        else if (ua.includes('Firefox')) browser.name = 'Firefox';
+        else if (ua.includes('Safari')) browser.name = 'Safari';
+        else if (ua.includes('Edge')) browser.name = 'Edge';
+
+        return browser;
+    },
+
+    // 파일 크기 포맷팅
+    formatFileSize: function(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    },
+
+    // 랜덤 ID 생성
+    generateId: function(length = 8) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < length; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    },
+
+    // 깊은 복사
+    deepClone: function(obj) {
+        if (obj === null || typeof obj !== "object") return obj;
+        if (obj instanceof Date) return new Date(obj.getTime());
+        if (obj instanceof Array) return obj.map(item => this.deepClone(item));
+        if (typeof obj === "object") {
+            const clonedObj = {};
+            for (const key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    clonedObj[key] = this.deepClone(obj[key]);
+                }
+            }
+            return clonedObj;
+        }
+    },
+
+    // 객체 병합
+    mergeObjects: function(...objects) {
+        return Object.assign({}, ...objects);
+    },
+
+    // 배열에서 중복 제거
+    uniqueArray: function(arr) {
+        return [...new Set(arr)];
+    },
+
+    // 환경 감지
+    Environment: {
+        isDevelopment: function() {
+            return location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        },
+
+        isSecure: function() {
+            return location.protocol === 'https:' || this.isDevelopment();
+        },
+
+        getEnvironment: function() {
+            if (this.isDevelopment()) return 'development';
+            if (location.hostname.includes('staging')) return 'staging';
+            return 'production';
+        }
+    },
+
+    // 성능 측정
+    Performance: {
+        start: function(label) {
+            performance.mark(`${label}-start`);
+        },
+
+        end: function(label) {
+            performance.mark(`${label}-end`);
+            performance.measure(label, `${label}-start`, `${label}-end`);
+            const measure = performance.getEntriesByName(label)[0];
+            console.log(`Performance [${label}]: ${measure.duration.toFixed(2)}ms`);
+            return measure.duration;
+        }
+    },
+
+    // 초기화
+    init: function() {
+        console.log('Utils 초기화 완료');
+        
+        // 개발 환경에서 유틸리티 함수들을 전역으로 노출
+        if (this.Environment.isDevelopment()) {
+            window.DEBUG_UTILS = this;
+            console.log('개발 환경: Utils 함수들이 window.DEBUG_UTILS로 노출됨');
+        }
     }
 };

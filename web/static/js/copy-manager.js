@@ -1,46 +1,101 @@
 // 복사 기능 관리자
 window.CopyManager = {
     setupEventListeners: function() {
-        // 키 표시 영역의 복사 버튼들
-        DOM.keyDisplayArea.addEventListener('click', this.handleKeyAreaCopy);
+        // 전역 클릭 이벤트 위임
+        document.addEventListener('click', (e) => {
+            // 복사 버튼 처리
+            if (e.target.classList.contains('copy-btn') || e.target.classList.contains('copy-key-btn')) {
+                e.preventDefault();
+                this.handleCopyClick(e.target);
+            }
+            
+            // data-action 기반 복사 처리
+            if (e.target.dataset.action === 'copy') {
+                e.preventDefault();
+                this.handleActionCopy(e.target);
+            }
+        });
         
         console.log('CopyManager 이벤트 리스너 설정 완료');
     },
 
-    handleKeyAreaCopy: function(e) {
-        const target = e.target;
+    handleCopyClick: function(button) {
         let textToCopy = '';
         let copyType = '';
 
-        if (target.classList.contains('copy-key-btn')) {
-            const targetId = target.dataset.targetId;
+        // 모달 내 키 복사 버튼
+        if (button.classList.contains('copy-key-btn')) {
+            const keyType = button.dataset.keyType;
+            textToCopy = this.getKeyContent(keyType);
+            copyType = this.getCopyTypeFromKeyType(keyType);
+        }
+        // 일반 복사 버튼
+        else if (button.classList.contains('copy-btn')) {
+            const targetId = button.dataset.target;
             const targetElement = document.getElementById(targetId);
             if (targetElement) {
                 textToCopy = targetElement.textContent;
-                copyType = CopyManager.getCopyTypeFromId(targetId);
-            }
-        } else if (target.classList.contains('copy-cmd-btn')) {
-            const targetId = target.dataset.targetId;
-            const targetElement = document.getElementById(targetId);
-            if (targetElement) {
-                textToCopy = targetElement.textContent;
-                copyType = '명령어';
+                copyType = this.getCopyTypeFromId(targetId);
             }
         }
 
         if (textToCopy) {
-            CopyManager.copyToClipboard(textToCopy, copyType);
+            this.copyToClipboard(textToCopy, copyType);
         }
+    },
+
+    handleActionCopy: function(element) {
+        const targetId = element.dataset.target;
+        const copyType = element.dataset.type || '텍스트';
+        
+        let textToCopy = '';
+        
+        if (element.dataset.text) {
+            // 직접 텍스트가 지정된 경우
+            textToCopy = element.dataset.text;
+        } else if (targetId) {
+            // 타겟 요소에서 텍스트 추출
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                textToCopy = targetElement.textContent;
+            }
+        }
+
+        if (textToCopy) {
+            this.copyToClipboard(textToCopy, copyType);
+        }
+    },
+
+    getKeyContent: function(keyType) {
+        // 모달에서 키 타입별 콘텐츠 추출
+        const elementId = `modal-${keyType}-key`;
+        const element = document.getElementById(elementId);
+        return element ? element.textContent : '';
+    },
+
+    getCopyTypeFromKeyType: function(keyType) {
+        const types = {
+            'public': '공개키',
+            'pem': 'PEM 키',
+            'ppk': 'PPK 키'
+        };
+        return types[keyType] || '키';
     },
 
     getCopyTypeFromId: function(targetId) {
         if (targetId.includes('public')) return '공개키';
         if (targetId.includes('pem')) return 'PEM 키';
         if (targetId.includes('ppk')) return 'PPK 키';
-        return '키';
+        if (targetId.includes('cmd')) return '명령어';
+        return '텍스트';
     },
 
     copyToClipboard: async function(text, type = '텍스트') {
+        if (!text) {
+            this.showCopyMessage('복사할 내용이 없습니다', 'warning');
+            return;
+        }
+
         try {
             // 현대적인 Clipboard API 사용 시도
             if (navigator.clipboard && window.isSecureContext) {
@@ -64,17 +119,19 @@ window.CopyManager = {
         textArea.value = text;
         
         // 화면에 보이지 않도록 스타일 설정
-        textArea.style.position = "fixed";
-        textArea.style.top = "0";
-        textArea.style.left = "0";
-        textArea.style.width = "2em";
-        textArea.style.height = "2em";
-        textArea.style.padding = "0";
-        textArea.style.border = "none";
-        textArea.style.outline = "none";
-        textArea.style.boxShadow = "none";
-        textArea.style.background = "transparent";
-        textArea.style.zIndex = "-1";
+        Object.assign(textArea.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            width: "2em",
+            height: "2em",
+            padding: "0",
+            border: "none",
+            outline: "none",
+            boxShadow: "none",
+            background: "transparent",
+            zIndex: "-1"
+        });
 
         document.body.appendChild(textArea);
         textArea.focus();
@@ -129,7 +186,8 @@ window.CopyManager = {
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
             transform: 'translateX(100%)',
             transition: 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out',
-            opacity: '0'
+            opacity: '0',
+            cursor: 'pointer'
         });
         
         // 타입별 색상 설정
@@ -137,6 +195,8 @@ window.CopyManager = {
             messageEl.style.backgroundColor = '#27ae60';
         } else if (type === 'error') {
             messageEl.style.backgroundColor = '#e74c3c';
+        } else if (type === 'warning') {
+            messageEl.style.backgroundColor = '#f39c12';
         }
         
         // DOM에 추가
@@ -173,7 +233,7 @@ window.CopyManager = {
         }
     },
 
-    // 특정 요소의 텍스트 복사
+    // 특정 요소의 텍스트 복사 (외부에서 호출용)
     copyElementText: function(elementId, type) {
         const element = document.getElementById(elementId);
         if (!element) {
@@ -227,9 +287,29 @@ window.CopyManager = {
         }
     },
 
+    // 키보드 단축키 지원 (Ctrl+C)
+    setupKeyboardShortcuts: function() {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+C 또는 Cmd+C 감지
+            if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                // 텍스트가 선택되지 않은 상태에서만 처리
+                const selection = window.getSelection();
+                if (!selection.toString()) {
+                    // 현재 활성화된 키 영역이 있으면 복사
+                    const activeKeyElement = document.querySelector('.key-content:focus, .command-display:focus');
+                    if (activeKeyElement) {
+                        e.preventDefault();
+                        this.copyToClipboard(activeKeyElement.textContent, '키 정보');
+                    }
+                }
+            }
+        });
+    },
+
     // 초기화
     init: function() {
         this.logCopyStatus();
+        this.setupKeyboardShortcuts();
         console.log('CopyManager 초기화 완료');
     }
 };

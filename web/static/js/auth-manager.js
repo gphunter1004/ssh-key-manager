@@ -29,8 +29,8 @@ window.AuthManager = {
     handleLogin: async function(e) {
         e.preventDefault();
         
-        const username = e.target.elements['login-username'].value.trim();
-        const password = e.target.elements['login-password'].value;
+        const username = e.target.elements['username'].value.trim();
+        const password = e.target.elements['password'].value;
 
         if (!username || !password) {
             Utils.showToast('사용자명과 비밀번호를 모두 입력해주세요', 'warning');
@@ -49,7 +49,14 @@ window.AuthManager = {
             AppState.jwtToken = data.token;
             localStorage.setItem('jwtToken', AppState.jwtToken);
             
-            console.log('로그인 성공:', username);
+            // 로그인 후 사용자 정보 설정
+            AppState.currentUser = {
+                id: data.user_id || data.id,
+                username: data.username,
+                role: data.role
+            };
+            
+            console.log('✅ 로그인 성공:', AppState.currentUser);
             Utils.showToast(`환영합니다, ${username}님!`, 'success');
             
             updateUI();
@@ -69,8 +76,8 @@ window.AuthManager = {
     handleRegister: async function(e) {
         e.preventDefault();
         
-        const username = e.target.elements['register-username'].value.trim();
-        const password = e.target.elements['register-password'].value;
+        const username = e.target.elements['username'].value.trim();
+        const password = e.target.elements['password'].value;
 
         if (!username || !password) {
             Utils.showToast('사용자명과 비밀번호를 모두 입력해주세요', 'warning');
@@ -91,7 +98,7 @@ window.AuthManager = {
             // 로딩 상태 표시
             Utils.setLoading(true, '회원가입 중...');
             
-            await AppUtils.apiFetch('/register', 'POST', {
+            const data = await AppUtils.apiFetch('/register', 'POST', {
                 username: username,
                 password: password
             });
@@ -105,8 +112,8 @@ window.AuthManager = {
             DOM.loginView.classList.remove('hidden');
             
             // 로그인 폼에 사용자명 자동 입력
-            DOM.loginForm.elements['login-username'].value = username;
-            DOM.loginForm.elements['login-password'].focus();
+            DOM.loginForm.elements['username'].value = username;
+            DOM.loginForm.elements['password'].focus();
             
         } catch (error) {
             console.error('회원가입 실패:', error.message);
@@ -151,17 +158,26 @@ window.AuthManager = {
         }
 
         try {
-            // 현재 사용자 정보를 가져와서 토큰 유효성 확인
-            const userData = await AppUtils.apiFetch('/users/me', 'GET');
-            AppState.currentUser = userData;
-            console.log('토큰 유효, 현재 사용자:', userData.username);
-            return true;
+            // 토큰 검증 API 호출
+            const data = await AppUtils.apiFetch('/validate', 'GET');
+            
+            if (data.valid) {
+                AppState.currentUser = {
+                    id: data.user_id,
+                    username: data.username,
+                    role: data.role
+                };
+                console.log('🔍 토큰 검증 성공, 사용자 정보:', AppState.currentUser);
+                return true;
+            }
         } catch (error) {
-            console.error('토큰 유효성 검사 실패:', error.message);
+            console.error('토큰 검증 실패:', error.message);
             // 토큰이 무효한 경우 로그아웃 처리
             this.handleLogout();
             return false;
         }
+        
+        return false;
     },
 
     // 페이지 로드 시 자동 로그인 확인
@@ -171,7 +187,9 @@ window.AuthManager = {
             if (isValid) {
                 console.log('자동 로그인 성공');
                 updateUI();
+                return true;
             }
         }
+        return false;
     }
 };

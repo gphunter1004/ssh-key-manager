@@ -5,19 +5,21 @@ window.ProfileManager = {
 
     setupEventListeners: function() {
         // 프로필 업데이트 폼 제출
-        DOM.profileForm.addEventListener('submit', this.handleProfileUpdate);
+        if (DOM.profileForm) {
+            DOM.profileForm.addEventListener('submit', this.handleProfileUpdate.bind(this));
+        }
         
         // 실시간 입력 검증
         const usernameInput = document.getElementById('profile-username');
         const passwordInput = document.getElementById('profile-password');
         
         if (usernameInput) {
-            usernameInput.addEventListener('input', this.validateUsername);
-            usernameInput.addEventListener('blur', this.checkUsernameAvailability);
+            usernameInput.addEventListener('input', this.validateUsername.bind(this));
+            usernameInput.addEventListener('blur', this.checkUsernameAvailability.bind(this));
         }
         
         if (passwordInput) {
-            passwordInput.addEventListener('input', this.validatePassword);
+            passwordInput.addEventListener('input', this.validatePassword.bind(this));
         }
         
         console.log('ProfileManager 이벤트 리스너 설정 완료');
@@ -61,15 +63,20 @@ window.ProfileManager = {
     displayCurrentUserInfo: function(userData) {
         let sshKeyInfo = '';
         
-        if (userData.has_ssh_key && userData.ssh_key) {
-            const keyCreated = new Date(userData.ssh_key.created_at).toLocaleString('ko-KR');
-            const keyUpdated = new Date(userData.ssh_key.updated_at).toLocaleString('ko-KR');
+        if (userData.has_ssh_key) {
+            // SSH 키 정보가 있는 경우
+            const keyCreated = userData.ssh_key ? 
+                new Date(userData.ssh_key.created_at).toLocaleString('ko-KR') : 
+                '정보 없음';
+            const keyUpdated = userData.ssh_key ? 
+                new Date(userData.ssh_key.updated_at).toLocaleString('ko-KR') : 
+                '정보 없음';
             
             sshKeyInfo = `
                 <div class="user-detail">
                     <strong>SSH 키:</strong> 
                     <span class="key-status has-key">보유</span>
-                    (${userData.ssh_key.algorithm} ${userData.ssh_key.bits}bits)
+                    (RSA 4096bits)
                 </div>
                 <div class="user-detail">
                     <strong>키 생성일:</strong> ${keyCreated}
@@ -77,12 +84,6 @@ window.ProfileManager = {
                 <div class="user-detail">
                     <strong>키 수정일:</strong> ${keyUpdated}
                 </div>
-                ${userData.ssh_key.fingerprint ? `
-                <div class="user-detail">
-                    <strong>핑거프린트:</strong> 
-                    <code class="fingerprint">${userData.ssh_key.fingerprint}</code>
-                </div>
-                ` : ''}
             `;
         } else {
             sshKeyInfo = `
@@ -97,47 +98,54 @@ window.ProfileManager = {
         const joinedDate = new Date(userData.created_at).toLocaleString('ko-KR');
         const lastUpdate = new Date(userData.updated_at).toLocaleString('ko-KR');
 
-        DOM.currentUserInfo.innerHTML = `
-            <h3>현재 프로필 정보</h3>
-            <div class="profile-summary">
-                <div class="user-detail">
-                    <strong>사용자명:</strong> 
-                    <span class="username">${this.escapeHtml(userData.username)}</span>
+        if (DOM.currentUserInfo) {
+            DOM.currentUserInfo.innerHTML = `
+                <h3>현재 프로필 정보</h3>
+                <div class="profile-summary">
+                    <div class="user-detail">
+                        <strong>사용자명:</strong> 
+                        <span class="username">${this.escapeHtml(userData.username)}</span>
+                    </div>
+                    <div class="user-detail">
+                        <strong>사용자 ID:</strong> ${userData.id}
+                    </div>
+                    <div class="user-detail">
+                        <strong>역할:</strong> ${userData.role === 'admin' ? '관리자' : '일반 사용자'}
+                    </div>
+                    <div class="user-detail">
+                        <strong>가입일:</strong> ${joinedDate}
+                    </div>
+                    <div class="user-detail">
+                        <strong>마지막 업데이트:</strong> ${lastUpdate}
+                    </div>
+                    ${sshKeyInfo}
                 </div>
-                <div class="user-detail">
-                    <strong>사용자 ID:</strong> ${userData.id}
+                <div class="profile-actions">
+                    <button type="button" class="btn-secondary" onclick="ProfileManager.refreshProfile()">
+                        🔄 새로고침
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="KeyManager.refresh()">
+                        🔑 키 상태 확인
+                    </button>
                 </div>
-                <div class="user-detail">
-                    <strong>가입일:</strong> ${joinedDate}
-                </div>
-                <div class="user-detail">
-                    <strong>마지막 업데이트:</strong> ${lastUpdate}
-                </div>
-                ${sshKeyInfo}
-            </div>
-            <div class="profile-actions">
-                <button type="button" class="secondary-btn" onclick="ProfileManager.refreshProfile()">
-                    🔄 새로고침
-                </button>
-                <button type="button" class="secondary-btn" onclick="KeyManager.refresh()">
-                    🔑 키 상태 확인
-                </button>
-            </div>
-        `;
+            `;
+        }
     },
 
     populateForm: function(userData) {
         // 폼 필드에 현재 값 설정
-        const usernameInput = document.getElementById('profile-username');
-        const passwordInput = document.getElementById('profile-password');
+        const usernameInput = document.querySelector('#profile-form input[name="username"]');
+        const passwordInput = document.querySelector('#profile-form input[name="password"]');
         
         if (usernameInput) {
             usernameInput.value = userData.username;
             usernameInput.dataset.originalValue = userData.username;
+            usernameInput.placeholder = `현재: ${userData.username}`;
         }
         
         if (passwordInput) {
             passwordInput.value = ''; // 비밀번호는 항상 빈 값으로 시작
+            passwordInput.placeholder = '새 비밀번호 (변경하지 않으려면 빈 상태로 두세요)';
         }
         
         // 폼 검증 상태 초기화
@@ -149,12 +157,10 @@ window.ProfileManager = {
         
         console.log('프로필 업데이트 요청');
         
-        const usernameInput = document.getElementById('profile-username');
-        const passwordInput = document.getElementById('profile-password');
-        
-        const newUsername = usernameInput.value.trim();
-        const newPassword = passwordInput.value;
-        const originalUsername = usernameInput.dataset.originalValue;
+        const formData = new FormData(e.target);
+        const newUsername = formData.get('username')?.trim();
+        const newPassword = formData.get('password')?.trim();
+        const originalUsername = e.target.querySelector('input[name="username"]').dataset.originalValue;
         
         // 변경사항 확인
         const updateData = {};
@@ -165,18 +171,18 @@ window.ProfileManager = {
             hasChanges = true;
         }
         
-        if (newPassword && newPassword.trim() !== '') {
+        if (newPassword && newPassword !== '') {
             updateData.new_password = newPassword;
             hasChanges = true;
         }
         
         if (!hasChanges) {
-            alert('변경할 내용이 없습니다.');
+            Utils.showToast('변경할 내용이 없습니다.', 'info');
             return;
         }
         
         // 사용자 확인
-        const confirmUpdate = ProfileManager.getUpdateConfirmation(updateData);
+        const confirmUpdate = this.getUpdateConfirmation(updateData);
         if (!confirm(confirmUpdate)) {
             console.log('프로필 업데이트 취소됨');
             return;
@@ -184,26 +190,34 @@ window.ProfileManager = {
         
         try {
             // 로딩 상태 표시
-            ProfileManager.setFormLoadingState(true);
+            this.setFormLoadingState(true);
             
             const result = await AppUtils.apiFetch('/users/me', 'PUT', updateData);
             
-            console.log('프로필 업데이트 성공:', result.user.username);
+            console.log('프로필 업데이트 성공:', result);
             
             // 성공 메시지
-            alert(result.message || '프로필이 성공적으로 업데이트되었습니다.');
+            Utils.showToast('프로필이 성공적으로 업데이트되었습니다!', 'success');
+            
+            // 사용자명이 변경된 경우 AppState 업데이트
+            if (updateData.username) {
+                AppState.currentUser.username = updateData.username;
+            }
             
             // 비밀번호 필드 클리어
-            passwordInput.value = '';
+            const passwordInput = e.target.querySelector('input[name="password"]');
+            if (passwordInput) {
+                passwordInput.value = '';
+            }
             
             // 프로필 정보 다시 로드
-            await ProfileManager.loadCurrentUserProfile();
+            await this.loadCurrentUserProfile();
             
         } catch (error) {
             console.error('프로필 업데이트 실패:', error.message);
             // 에러는 이미 AppUtils.apiFetch에서 표시됨
         } finally {
-            ProfileManager.setFormLoadingState(false);
+            this.setFormLoadingState(false);
         }
     },
 
@@ -238,31 +252,31 @@ window.ProfileManager = {
         
         // 검증 로직
         if (username === '') {
-            ProfileManager.setValidationMessage(messageEl, '', 'none');
+            this.setValidationMessage(messageEl, '', 'none');
             return;
         }
         
         if (username === originalUsername) {
-            ProfileManager.setValidationMessage(messageEl, '현재 사용자명과 동일합니다', 'info');
+            this.setValidationMessage(messageEl, '현재 사용자명과 동일합니다', 'info');
             return;
         }
         
         if (username.length < 2) {
-            ProfileManager.setValidationMessage(messageEl, '사용자명은 최소 2자 이상이어야 합니다', 'error');
+            this.setValidationMessage(messageEl, '사용자명은 최소 2자 이상이어야 합니다', 'error');
             return;
         }
         
         if (username.length > 30) {
-            ProfileManager.setValidationMessage(messageEl, '사용자명은 최대 30자까지 가능합니다', 'error');
+            this.setValidationMessage(messageEl, '사용자명은 최대 30자까지 가능합니다', 'error');
             return;
         }
         
         if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
-            ProfileManager.setValidationMessage(messageEl, '영문, 숫자, -, _ 만 사용 가능합니다', 'error');
+            this.setValidationMessage(messageEl, '영문, 숫자, -, _ 만 사용 가능합니다', 'error');
             return;
         }
         
-        ProfileManager.setValidationMessage(messageEl, '사용 가능한 사용자명입니다', 'success');
+        this.setValidationMessage(messageEl, '사용 가능한 사용자명입니다', 'success');
     },
 
     validatePassword: function(e) {
@@ -279,23 +293,23 @@ window.ProfileManager = {
         
         // 검증 로직
         if (password === '') {
-            ProfileManager.setValidationMessage(messageEl, '비밀번호를 변경하지 않으려면 빈 상태로 두세요', 'info');
+            this.setValidationMessage(messageEl, '비밀번호를 변경하지 않으려면 빈 상태로 두세요', 'info');
             return;
         }
         
         if (password.length < 4) {
-            ProfileManager.setValidationMessage(messageEl, '비밀번호는 최소 4자 이상이어야 합니다', 'error');
+            this.setValidationMessage(messageEl, '비밀번호는 최소 4자 이상이어야 합니다', 'error');
             return;
         }
         
         if (password.length > 100) {
-            ProfileManager.setValidationMessage(messageEl, '비밀번호가 너무 깁니다', 'error');
+            this.setValidationMessage(messageEl, '비밀번호가 너무 깁니다', 'error');
             return;
         }
         
         // 비밀번호 강도 검사
-        const strength = ProfileManager.checkPasswordStrength(password);
-        ProfileManager.setValidationMessage(messageEl, `비밀번호 강도: ${strength.text}`, strength.type);
+        const strength = this.checkPasswordStrength(password);
+        this.setValidationMessage(messageEl, `비밀번호 강도: ${strength.text}`, strength.type);
     },
 
     checkPasswordStrength: function(password) {
@@ -320,11 +334,25 @@ window.ProfileManager = {
         element.textContent = message;
         element.className = `validation-message ${type}`;
         element.style.display = message ? 'block' : 'none';
+        
+        // 타입별 색상 설정
+        const colors = {
+            'error': '#e74c3c',
+            'warning': '#f39c12',
+            'success': '#27ae60',
+            'info': '#3498db',
+            'none': 'transparent'
+        };
+        element.style.color = colors[type] || '#666';
+        element.style.fontSize = '12px';
+        element.style.marginTop = '4px';
     },
 
     clearFormValidation: function() {
-        const messages = DOM.profileForm.querySelectorAll('.validation-message');
-        messages.forEach(msg => msg.remove());
+        if (DOM.profileForm) {
+            const messages = DOM.profileForm.querySelectorAll('.validation-message');
+            messages.forEach(msg => msg.remove());
+        }
     },
 
     checkUsernameAvailability: async function(e) {
@@ -338,11 +366,14 @@ window.ProfileManager = {
         if (username.length >= 2 && /^[a-zA-Z0-9_-]+$/.test(username)) {
             // 실제로는 서버에서 중복 확인 API가 있어야 하지만,
             // 현재는 업데이트 시점에 확인하므로 여기서는 생략
+            console.log('사용자명 가용성 확인:', username);
         }
     },
 
     setLoadingState: function(message) {
-        DOM.currentUserInfo.innerHTML = `<div class="loading-message">${message}</div>`;
+        if (DOM.currentUserInfo) {
+            DOM.currentUserInfo.innerHTML = `<div class="loading-message">${message}</div>`;
+        }
     },
 
     clearLoadingState: function() {
@@ -350,29 +381,37 @@ window.ProfileManager = {
     },
 
     setFormLoadingState: function(isLoading) {
+        if (!DOM.profileForm) return;
+        
         const submitBtn = DOM.profileForm.querySelector('button[type="submit"]');
         const inputs = DOM.profileForm.querySelectorAll('input');
         
         if (isLoading) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = '업데이트 중...';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '업데이트 중...';
+            }
             inputs.forEach(input => input.disabled = true);
         } else {
-            submitBtn.disabled = false;
-            submitBtn.textContent = '프로필 업데이트';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '프로필 업데이트';
+            }
             inputs.forEach(input => input.disabled = false);
         }
     },
 
     showProfileError: function(message) {
-        DOM.currentUserInfo.innerHTML = `
-            <div class="error-message">
-                ❌ ${message}
-                <button type="button" onclick="ProfileManager.loadCurrentUserProfile()" class="retry-btn">
-                    다시 시도
-                </button>
-            </div>
-        `;
+        if (DOM.currentUserInfo) {
+            DOM.currentUserInfo.innerHTML = `
+                <div class="error-message">
+                    ❌ ${message}
+                    <button type="button" onclick="ProfileManager.loadCurrentUserProfile()" class="btn-primary" style="margin-top:10px;">
+                        다시 시도
+                    </button>
+                </div>
+            `;
+        }
     },
 
     refreshProfile: async function() {
