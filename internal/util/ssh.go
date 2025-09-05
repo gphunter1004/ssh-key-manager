@@ -38,7 +38,7 @@ func TestSSHConnection(host string, port int, username string) error {
 }
 
 // DeploySSHKeyToServer는 SSH 키를 원격 서버에 배포합니다.
-func DeploySSHKeyToServer(publicKey, host string, port int, username string) error {
+func DeploySSHKeyToServer(publicKey, host string, port int, username string, targetDirectory string) error {
 	log.Printf("📡 원격 서버 SSH 키 배포 시작: %s@%s:%d", username, host, port)
 
 	// 공개키 검증
@@ -52,7 +52,7 @@ func DeploySSHKeyToServer(publicKey, host string, port int, username string) err
 	}
 
 	// 공개키 배포
-	if err := deployPublicKeyViaSSH(publicKey, host, port, username); err != nil {
+	if err := deployPublicKeyViaSSH(publicKey, host, port, username, targetDirectory); err != nil {
 		return fmt.Errorf("공개키 배포 실패: %v", err)
 	}
 
@@ -61,7 +61,7 @@ func DeploySSHKeyToServer(publicKey, host string, port int, username string) err
 }
 
 // deployPublicKeyViaSSH는 SSH를 통해 공개키를 원격 서버에 배포합니다.
-func deployPublicKeyViaSSH(publicKey, host string, port int, username string) error {
+func deployPublicKeyViaSSH(publicKey, host string, port int, username string, targetDirectory string) error {
 	log.Printf("🔑 공개키 배포 중...")
 
 	// 공개키를 정리 (개행 제거 등)
@@ -70,16 +70,22 @@ func deployPublicKeyViaSSH(publicKey, host string, port int, username string) er
 		cleanedKey += "\n"
 	}
 
+	authorizedKeysPath := fmt.Sprintf("%s/authorized_keys", targetDirectory)
+
 	// SSH를 통해 authorized_keys에 공개키 추가
 	// 중복을 방지하기 위해 먼저 키가 있는지 확인 후 추가
 	sshCommand := fmt.Sprintf(
-		`mkdir -p ~/.ssh && chmod 700 ~/.ssh && `+
-			`if ! grep -q "%s" ~/.ssh/authorized_keys 2>/dev/null; then `+
-			`echo '%s' >> ~/.ssh/authorized_keys; fi && `+
-			`chmod 600 ~/.ssh/authorized_keys && `+
+		`mkdir -p %s && chmod 700 %s && `+
+			`touch %s && `+ // 파일이 없는 경우 생성
+			`if ! grep -q "%s" %s 2>/dev/null; then `+
+			`echo '%s' >> %s; fi && `+
+			`chmod 600 %s && `+
 			`echo 'Key deployed successfully'`,
-		strings.Fields(cleanedKey)[1],                  // 키의 핵심 부분만 추출하여 중복 체크
-		strings.ReplaceAll(cleanedKey, "'", "'\"'\"'"), // 작은따옴표 이스케이프
+		targetDirectory, targetDirectory, // mkdir, chmod
+		authorizedKeysPath,                                // touch
+		strings.Fields(cleanedKey)[1], authorizedKeysPath, // grep
+		strings.ReplaceAll(cleanedKey, "'", "'\"'\"'"), authorizedKeysPath, // echo
+		authorizedKeysPath, // chmod
 	)
 
 	cmd := exec.Command("ssh",

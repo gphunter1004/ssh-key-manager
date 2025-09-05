@@ -4,21 +4,23 @@ package dto
 
 // ServerCreateRequest는 서버 생성 요청 구조체입니다.
 type ServerCreateRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Host        string `json:"host" binding:"required"`
-	Port        int    `json:"port"`
-	Username    string `json:"username" binding:"required"`
-	Description string `json:"description"`
+	Name            string `json:"name" binding:"required"`
+	Host            string `json:"host" binding:"required"`
+	Port            int    `json:"port"`
+	Username        string `json:"username" binding:"required"`
+	Description     string `json:"description"`
+	TargetDirectory string `json:"target_directory"` // 필드 추가
 }
 
 // ServerUpdateRequest는 서버 수정 요청 구조체입니다.
 type ServerUpdateRequest struct {
-	Name        string `json:"name,omitempty"`
-	Host        string `json:"host,omitempty"`
-	Port        int    `json:"port,omitempty"`
-	Username    string `json:"username,omitempty"`
-	Description string `json:"description,omitempty"`
-	Status      string `json:"status,omitempty"`
+	Name            string `json:"name,omitempty"`
+	Host            string `json:"host,omitempty"`
+	Port            int    `json:"port,omitempty"`
+	Username        string `json:"username,omitempty"`
+	Description     string `json:"description,omitempty"`
+	Status          string `json:"status,omitempty"`
+	TargetDirectory string `json:"target_directory,omitempty"` // 필드 추가
 }
 
 // ========== 키 배포 관련 DTO ==========

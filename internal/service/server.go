@@ -50,6 +50,11 @@ func (ss *ServerService) CreateServer(userID uint, req dto.ServerCreateRequest) 
 		)
 	}
 
+	targetDir := strings.TrimSpace(req.TargetDirectory)
+	if targetDir == "" {
+		targetDir = "~/.ssh" // 기본값 설정
+	}
+
 	server := &model.Server{
 		UserID:      userID,
 		Name:        strings.TrimSpace(req.Name),
@@ -155,6 +160,9 @@ func (ss *ServerService) UpdateServer(userID, serverID uint, req dto.ServerUpdat
 			)
 		}
 		updates["status"] = req.Status
+	}
+	if req.TargetDirectory != "" && req.TargetDirectory != server.TargetDirectory {
+		updates["target_directory"] = strings.TrimSpace(req.TargetDirectory)
 	}
 
 	// 업데이트 실행
@@ -306,7 +314,7 @@ func (ss *ServerService) DeployKeyToServers(userID uint, req dto.KeyDeploymentRe
 		ss.deployRepo.Create(deployment)
 
 		// 실제 키 배포 실행
-		err := util.DeploySSHKeyToServer(sshKey.PublicKey, server.Host, server.Port, server.Username)
+		err := util.DeploySSHKeyToServer(sshKey.PublicKey, server.Host, server.Port, server.Username, server.TargetDirectory)
 
 		if err != nil {
 			// 배포 실패
