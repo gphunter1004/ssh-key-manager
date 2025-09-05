@@ -47,7 +47,7 @@ window.ViewManager = {
     },
 
     showView: function(viewName) {
-        console.log('뷰 전환:', this.currentView, '->', viewName);
+        console.log('🔄 뷰 전환 요청:', this.currentView, '->', viewName);
         
         // 권한 확인
         if (!this.checkViewAccess(viewName)) {
@@ -65,34 +65,39 @@ window.ViewManager = {
         this.resetNavigation();
         
         // 선택된 뷰 표시 및 초기화
+        const viewShown = this.displayView(viewName);
+        
+        if (viewShown) {
+            // 현재 뷰 상태 업데이트
+            this.currentView = viewName;
+            AppState.currentView = viewName;
+            
+            // URL 해시 업데이트 (선택사항)
+            this.updateUrlHash(viewName);
+            
+            console.log('✅ 뷰 전환 완료:', viewName);
+        } else {
+            console.warn('❌ 뷰 전환 실패, 기본 뷰로 이동');
+            this.showView('keys'); // 기본값으로 키 관리 뷰 표시
+        }
+    },
+
+    displayView: function(viewName) {
         switch(viewName) {
             case 'keys':
-                this.showKeysView();
-                break;
+                return this.showKeysView();
             case 'users':
-                this.showUsersView();
-                break;
+                return this.showUsersView();
             case 'profile':
-                this.showProfileView();
-                break;
+                return this.showProfileView();
             case 'servers':
-                this.showServersView();
-                break;
+                return this.showServersView();
             case 'departments':
-                this.showDepartmentsView();
-                break;
+                return this.showDepartmentsView();
             default:
                 console.warn('알 수 없는 뷰:', viewName);
-                this.showKeysView(); // 기본값으로 키 관리 뷰 표시
-                return;
+                return false;
         }
-        
-        // 현재 뷰 상태 업데이트
-        this.currentView = viewName;
-        AppState.currentView = viewName;
-        
-        // URL 해시 업데이트 (선택사항)
-        this.updateUrlHash(viewName);
     },
 
     hideAllViews: function() {
@@ -116,84 +121,123 @@ window.ViewManager = {
     },
 
     showKeysView: function() {
-        if (DOM.keysView) {
-            DOM.keysView.classList.remove('hidden');
+        const keysView = document.getElementById('keys-view');
+        const navKeys = document.getElementById('nav-keys');
+        
+        if (!keysView) {
+            console.error('❌ keys-view 요소를 찾을 수 없습니다');
+            return false;
         }
-        if (DOM.navKeys) {
-            DOM.navKeys.classList.add('active');
+        
+        keysView.classList.remove('hidden');
+        if (navKeys) {
+            navKeys.classList.add('active');
         }
-        console.log('키 관리 뷰 활성화');
+        
+        console.log('✅ 키 관리 뷰 활성화');
         
         // 키 뷰 초기화 - 자동 로드
-        if (KeyManager && KeyManager.autoLoadKeys) {
+        if (typeof KeyManager !== 'undefined' && KeyManager.autoLoadKeys) {
             KeyManager.autoLoadKeys();
         }
+        
+        return true;
     },
 
     showUsersView: function() {
-        if (DOM.usersView) {
-            DOM.usersView.classList.remove('hidden');
+        const usersView = document.getElementById('users-view');
+        const navUsers = document.getElementById('nav-users');
+        
+        if (!usersView) {
+            console.error('❌ users-view 요소를 찾을 수 없습니다');
+            return false;
         }
-        if (DOM.navUsers) {
-            DOM.navUsers.classList.add('active');
+        
+        usersView.classList.remove('hidden');
+        if (navUsers) {
+            navUsers.classList.add('active');
         }
-        console.log('사용자 목록 뷰 활성화');
+        
+        console.log('✅ 사용자 목록 뷰 활성화');
         
         // 사용자 목록 로드
-        if (UserManager && UserManager.loadUsersList) {
+        if (typeof UserManager !== 'undefined' && UserManager.loadUsersList) {
             UserManager.loadUsersList();
         }
+        
+        return true;
     },
 
     showProfileView: function() {
-        if (DOM.profileView) {
-            DOM.profileView.classList.remove('hidden');
+        const profileView = document.getElementById('profile-view');
+        const navProfile = document.getElementById('nav-profile');
+        
+        if (!profileView) {
+            console.error('❌ profile-view 요소를 찾을 수 없습니다');
+            return false;
         }
-        if (DOM.navProfile) {
-            DOM.navProfile.classList.add('active');
+        
+        profileView.classList.remove('hidden');
+        if (navProfile) {
+            navProfile.classList.add('active');
         }
-        console.log('프로필 뷰 활성화');
+        
+        console.log('✅ 프로필 뷰 활성화');
         
         // 프로필 정보 로드
-        if (ProfileManager && ProfileManager.loadCurrentUserProfile) {
+        if (typeof ProfileManager !== 'undefined' && ProfileManager.loadCurrentUserProfile) {
             ProfileManager.loadCurrentUserProfile();
         }
+        
+        return true;
     },
 
     showServersView: function() {
         const serversView = document.getElementById('servers-view');
         const navServers = document.getElementById('nav-servers');
         
-        if (serversView) {
-            serversView.classList.remove('hidden');
+        if (!serversView) {
+            console.error('❌ servers-view 요소를 찾을 수 없습니다');
+            return false;
         }
+        
+        serversView.classList.remove('hidden');
         if (navServers) {
             navServers.classList.add('active');
         }
-        console.log('서버 관리 뷰 활성화');
+        
+        console.log('✅ 서버 관리 뷰 활성화');
         
         // 서버 목록 로드 (ServerManager가 있는 경우)
-        if (window.ServerManager && ServerManager.loadServersList) {
+        if (typeof ServerManager !== 'undefined' && ServerManager.loadServersList) {
             ServerManager.loadServersList();
         }
+        
+        return true;
     },
 
     showDepartmentsView: function() {
         const departmentsView = document.getElementById('departments-view');
         const navDepartments = document.getElementById('nav-departments');
         
-        if (departmentsView) {
-            departmentsView.classList.remove('hidden');
+        if (!departmentsView) {
+            console.error('❌ departments-view 요소를 찾을 수 없습니다');
+            return false;
         }
+        
+        departmentsView.classList.remove('hidden');
         if (navDepartments) {
             navDepartments.classList.add('active');
         }
-        console.log('부서 관리 뷰 활성화');
+        
+        console.log('✅ 부서 관리 뷰 활성화');
         
         // 부서 목록 로드 (DepartmentManager가 있는 경우)
-        if (window.DepartmentManager && DepartmentManager.loadDepartmentsList) {
+        if (typeof DepartmentManager !== 'undefined' && DepartmentManager.loadDepartmentsList) {
             DepartmentManager.loadDepartmentsList();
         }
+        
+        return true;
     },
 
     cleanupCurrentView: function() {
@@ -217,12 +261,12 @@ window.ViewManager = {
         }
         
         // 모달이 열려있으면 닫기
-        if (ModalManager && ModalManager.isOpen) {
+        if (typeof ModalManager !== 'undefined' && ModalManager.isOpen) {
             ModalManager.closeModal();
         }
         
         // 에러 메시지 클리어
-        if (AppUtils && AppUtils.clearError) {
+        if (typeof AppUtils !== 'undefined' && AppUtils.clearError) {
             AppUtils.clearError();
         }
     },
@@ -265,7 +309,7 @@ window.ViewManager = {
     // 네비게이션 업데이트 (로그인 상태에 따라)
     updateNavigation: function() {
         const isAdmin = this.isAdmin();
-        const usersNav = DOM.navUsers;
+        const usersNav = document.getElementById('nav-users');
         const departmentsNav = document.getElementById('nav-departments');
         
         console.log(`👤 사용자 권한: ${AppState.currentUser?.role || 'unknown'}, 관리자: ${isAdmin}`);
@@ -349,12 +393,6 @@ window.ViewManager = {
             console.log('데스크톱 뷰 모드 활성화');
             document.body.classList.remove('mobile-view');
         }
-    },
-
-    // 뷰 전환 애니메이션 (선택사항)
-    animateViewTransition: function(fromView, toView) {
-        // 부드러운 전환 효과를 원하는 경우 구현
-        console.log(`뷰 전환 애니메이션: ${fromView} → ${toView}`);
     },
 
     // 뷰 상태 저장/복원

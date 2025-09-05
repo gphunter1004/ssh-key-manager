@@ -1,4 +1,4 @@
-// SSH 키 관리자
+// SSH 키 관리자 - 개선된 버전
 window.KeyManager = {
     setupEventListeners: function() {
         // 액션 기반 이벤트 위임 (통합 스크립트의 data-action 방식 사용)
@@ -33,7 +33,7 @@ window.KeyManager = {
         } catch (error) {
             // 키가 없는 경우는 정상적인 상황이므로 에러 로그만 출력
             console.log('ℹ️ 키가 없거나 로드 실패:', error.message);
-            DOM.keyInfo.textContent = '생성된 SSH 키가 없습니다. 키를 생성해주세요.';
+            this.setKeyInfoText('생성된 SSH 키가 없습니다. 키를 생성해주세요.');
         }
     },
 
@@ -93,9 +93,9 @@ window.KeyManager = {
             
             // 키가 없는 경우 특별 처리
             if (error.message.includes('키를 찾을 수 없습니다') || error.status === 404) {
-                DOM.keyInfo.textContent = '생성된 SSH 키가 없습니다. 먼저 키를 생성해주세요.';
+                this.setKeyInfoText('생성된 SSH 키가 없습니다. 먼저 키를 생성해주세요.');
             } else {
-                DOM.keyInfo.textContent = '키를 불러오는 중 오류가 발생했습니다.';
+                this.setKeyInfoText('키를 불러오는 중 오류가 발생했습니다.');
             }
             throw error; // autoLoadKeys에서 catch할 수 있도록
         } finally {
@@ -147,37 +147,28 @@ window.KeyManager = {
         const normalizedData = this.normalizeKeyData(keyData);
         
         // 키 정보 표시
-        DOM.keyInfo.textContent = `Algorithm: ${normalizedData.algorithm} / Bits: ${normalizedData.bits}`;
+        this.setKeyInfoText(`Algorithm: ${normalizedData.algorithm} / Bits: ${normalizedData.bits}`);
         
-        // 각 키 데이터 설정
-        if (DOM.keyPublicPre && normalizedData.publicKey) {
-            DOM.keyPublicPre.textContent = normalizedData.publicKey;
-        }
-        if (DOM.keyPemPre && normalizedData.privateKeyPem) {
-            DOM.keyPemPre.textContent = normalizedData.privateKeyPem;
-        }
-        if (DOM.keyPpkPre && normalizedData.privateKeyPpk) {
-            DOM.keyPpkPre.textContent = normalizedData.privateKeyPpk;
-        }
+        // 각 키 데이터 설정 - null 체크 추가
+        this.setElementText('key-public', normalizedData.publicKey);
+        this.setElementText('key-pem', normalizedData.privateKeyPem);
+        this.setElementText('key-ppk', normalizedData.privateKeyPpk);
         
         // 명령어 생성
         const commands = this.generateCommands(normalizedData);
-        if (DOM.cmdPublicPre) {
-            DOM.cmdPublicPre.textContent = commands.publicKey;
-        }
-        if (DOM.cmdAuthorizedKeysPre && normalizedData.publicKey) {
-            DOM.cmdAuthorizedKeysPre.textContent = `echo '${this.escapeShell(normalizedData.publicKey)}' >> ~/.ssh/authorized_keys`;
-        }
-        if (DOM.cmdPemPre) {
-            DOM.cmdPemPre.textContent = commands.pem;
-        }
-        if (DOM.cmdPpkPre) {
-            DOM.cmdPpkPre.textContent = commands.ppk;
+        this.setElementText('cmd-public', commands.publicKey);
+        this.setElementText('cmd-pem', commands.pem);
+        this.setElementText('cmd-ppk', commands.ppk);
+        
+        if (normalizedData.publicKey) {
+            this.setElementText('cmd-authorized-keys', 
+                `echo '${this.escapeShell(normalizedData.publicKey)}' >> ~/.ssh/authorized_keys`);
         }
         
         // 키 표시 영역 보이기
-        if (DOM.keyDisplayArea) {
-            DOM.keyDisplayArea.classList.remove('hidden');
+        const keyDisplayArea = document.getElementById('key-display-area');
+        if (keyDisplayArea) {
+            keyDisplayArea.classList.remove('hidden');
         }
         
         console.log('✅ 키 정보 표시 완료');
@@ -228,20 +219,15 @@ window.KeyManager = {
 
     hideKeys: function() {
         console.log('키 정보 숨김');
-        if (DOM.keyDisplayArea) {
-            DOM.keyDisplayArea.classList.add('hidden');
+        const keyDisplayArea = document.getElementById('key-display-area');
+        if (keyDisplayArea) {
+            keyDisplayArea.classList.add('hidden');
         }
-        if (DOM.keyInfo) {
-            DOM.keyInfo.textContent = '';
-        }
+        this.setKeyInfoText('');
     },
 
     setLoadingState: function(message) {
-        if (DOM.keyInfo) {
-            DOM.keyInfo.textContent = message || '처리 중...';
-            DOM.keyInfo.style.color = '#3498db';
-            DOM.keyInfo.style.fontWeight = 'bold';
-        }
+        this.setKeyInfoText(message || '처리 중...', '#3498db', 'bold');
         
         // 버튼 비활성화
         const buttons = document.querySelectorAll('[data-action^="key-"]');
@@ -252,10 +238,7 @@ window.KeyManager = {
     },
 
     clearLoadingState: function() {
-        if (DOM.keyInfo) {
-            DOM.keyInfo.style.color = '';
-            DOM.keyInfo.style.fontWeight = '';
-        }
+        // keyInfo 스타일 초기화는 displayKeys에서 처리
         
         // 버튼 활성화
         const buttons = document.querySelectorAll('[data-action^="key-"]');
@@ -300,5 +283,79 @@ window.KeyManager = {
     refresh: async function() {
         console.log('키 정보 새로고침');
         await this.viewKey();
+    },
+
+    // ========== 안전한 DOM 조작 헬퍼 함수들 ==========
+
+    // 키 정보 텍스트 설정 (null 체크 포함)
+    setKeyInfoText: function(text, color = '', fontWeight = '') {
+        const keyInfo = document.getElementById('key-info');
+        if (keyInfo) {
+            keyInfo.textContent = text;
+            keyInfo.style.color = color;
+            keyInfo.style.fontWeight = fontWeight;
+        } else {
+            console.warn('⚠️ key-info 요소를 찾을 수 없습니다');
+        }
+    },
+
+    // 요소 텍스트 설정 (null 체크 포함)
+    setElementText: function(elementId, text) {
+        const element = document.getElementById(elementId);
+        if (element && text) {
+            element.textContent = text;
+        } else if (!element) {
+            console.warn(`⚠️ ${elementId} 요소를 찾을 수 없습니다`);
+        }
+    },
+
+    // DOM 요소 존재 확인
+    checkRequiredElements: function() {
+        const requiredElements = [
+            'key-info',
+            'key-display-area',
+            'key-public',
+            'key-pem', 
+            'key-ppk',
+            'cmd-public',
+            'cmd-authorized-keys',
+            'cmd-pem',
+            'cmd-ppk'
+        ];
+
+        const missingElements = [];
+        
+        requiredElements.forEach(id => {
+            const element = document.getElementById(id);
+            if (!element) {
+                missingElements.push(id);
+            }
+        });
+
+        if (missingElements.length > 0) {
+            console.warn('⚠️ 누락된 DOM 요소들:', missingElements);
+            return false;
+        }
+
+        console.log('✅ 모든 필수 DOM 요소가 존재합니다');
+        return true;
+    },
+
+    // 초기화 메서드
+    init: function() {
+        console.log('KeyManager 초기화 시작');
+        
+        // DOM 요소 존재 확인
+        const elementsExist = this.checkRequiredElements();
+        if (!elementsExist) {
+            console.error('❌ 필수 DOM 요소가 누락되어 KeyManager 초기화 실패');
+            return false;
+        }
+
+        // 이벤트 리스너 설정
+        this.setupEventListeners();
+
+        console.log('✅ KeyManager 초기화 완료');
+        return true;
     }
 };
