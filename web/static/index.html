@@ -11,15 +11,21 @@
 <div class="container">
     <h1>SSH Key Manager</h1>
 
-    <div id="error-display" style="display: none; background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #f5c6cb;"></div>
+    <div id="error-display"></div>
 
     <div id="auth-section">
         <div id="login-view">
             <div class="form-container">
                 <h2>로그인</h2>
                 <form id="login-form">
-                    <input type="text" name="username" placeholder="사용자명" required>
-                    <input type="password" name="password" placeholder="비밀번호" required>
+                    <div class="form-group">
+                        <label for="login-username">사용자명</label>
+                        <input type="text" id="login-username" name="username" placeholder="사용자명을 입력하세요" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">비밀번호</label>
+                        <input type="password" id="login-password" name="password" placeholder="비밀번호를 입력하세요" required>
+                    </div>
                     <button type="submit">로그인</button>
                 </form>
                 <p class="toggle-link">
@@ -32,8 +38,14 @@
             <div class="form-container">
                 <h2>회원가입</h2>
                 <form id="register-form">
-                    <input type="text" name="username" placeholder="사용자명" required>
-                    <input type="password" name="password" placeholder="비밀번호" required>
+                    <div class="form-group">
+                        <label for="register-username">사용자명</label>
+                        <input type="text" id="register-username" name="username" placeholder="사용할 사용자명을 입력하세요" required>
+                    </div>
+                    <div class="form-group">
+                         <label for="register-password">비밀번호</label>
+                        <input type="password" id="register-password" name="password" placeholder="사용할 비밀번호를 입력하세요" required>
+                    </div>
                     <button type="submit">가입하기</button>
                 </form>
                 <p class="toggle-link">
@@ -44,232 +56,117 @@
     </div>
 
     <div id="key-section" class="hidden">
-        <div class="header-section">
-            <button id="logout-btn">로그아웃</button>
+        <header class="header-section">
             <div class="nav-buttons">
-                <button id="nav-keys" class="nav-btn active">내 키 관리</button>
-                <button id="nav-servers" class="nav-btn">서버 관리</button>
-                <button id="nav-departments" class="nav-btn">부서 관리</button>
-                <button id="nav-users" class="nav-btn">사용자 목록</button>
-                <button id="nav-profile" class="nav-btn">프로필</button>
+                <button id="nav-keys" class="nav-btn active">🔑 내 키 관리</button>
+                <button id="nav-servers" class="nav-btn">🖥️ 서버 관리</button>
+                <button id="nav-users" class="nav-btn">👥 사용자 목록</button>
+                <button id="nav-profile" class="nav-btn">👤 프로필</button>
+                <button id="nav-departments" class="nav-btn" style="display: none;">🏢 부서 관리</button>
             </div>
-        </div>
+            <button id="logout-btn">로그아웃</button>
+        </header>
 
         <div id="keys-view" class="view-section">
             <div class="action-bar">
-                <h3>🔑 SSH 키 관리</h3>
+                <h3>SSH 키 관리</h3>
                 <div class="action-buttons">
                     <button data-action="key-create" class="btn-primary">키 생성/재생성</button>
                     <button data-action="key-view" class="btn-secondary">키 보기</button>
                     <button data-action="key-delete" class="btn-danger">키 삭제</button>
                 </div>
             </div>
-
             <div id="key-info"></div>
-            
             <div id="key-display-area" class="hidden">
-                <div class="key-item">
-                    <h4>공개키 (.pub)</h4>
-                    <div class="command-display">
-                        <pre id="cmd-public"></pre>
-                        <button class="copy-btn" data-action="copy" data-target="cmd-public" data-type="명령어">복사</button>
-                    </div>
-                    <div class="command-display">
-                        <pre id="cmd-authorized-keys"></pre>
-                        <button class="copy-btn" data-action="copy" data-target="cmd-authorized-keys" data-type="명령어">복사</button>
-                    </div>
-                    <div class="key-content">
-                        <pre id="key-public"></pre>
-                        <button class="copy-btn" data-action="copy" data-target="key-public" data-type="공개키">복사</button>
-                    </div>
                 </div>
-
-                <div class="key-item">
-                    <h4>개인키 (PEM)</h4>
-                    <div class="command-display">
-                        <pre id="cmd-pem"></pre>
-                        <button class="copy-btn" data-action="copy" data-target="cmd-pem" data-type="명령어">복사</button>
-                    </div>
-                    <div class="key-content">
-                        <pre id="key-pem"></pre>
-                        <button class="copy-btn" data-action="copy" data-target="key-pem" data-type="PEM 키">복사</button>
-                    </div>
-                </div>
-
-                <div class="key-item">
-                    <h4>개인키 (PPK)</h4>
-                    <div class="command-display">
-                        <pre id="cmd-ppk"></pre>
-                        <button class="copy-btn" data-action="copy" data-target="cmd-ppk" data-type="명령어">복사</button>
-                    </div>
-                    <div class="key-content">
-                        <pre id="key-ppk"></pre>
-                        <button class="copy-btn" data-action="copy" data-target="key-ppk" data-type="PPK 키">복사</button>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div id="servers-view" class="view-section hidden">
             <div class="action-bar">
-                <h3>🖥️ 서버 관리</h3>
+                <h3>서버 관리</h3>
                 <div class="action-buttons">
-                    <button data-action="server-create" class="btn-primary">서버 추가</button>
-                    <button data-action="server-refresh" class="btn-secondary">새로고침</button>
-                    <button data-action="deploy-all" class="btn-success">전체 배포</button>
+                     <button data-action="server-create" class="btn-primary">서버 추가</button>
                 </div>
             </div>
-
-            <div id="server-form-modal" class="form-modal hidden">
-                <h4>새 서버 추가</h4>
-                <form id="server-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="server-name">서버명</label>
-                            <input type="text" id="server-name" name="name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="server-host">호스트</label>
-                            <input type="text" id="server-host" name="host" required placeholder="예: 192.168.1.100">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="server-port">포트</label>
-                            <input type="number" id="server-port" name="port" value="22" min="1" max="65535">
-                        </div>
-                        <div class="form-group">
-                            <label for="server-username">SSH 사용자명</label>
-                            <input type="text" id="server-username" name="username" required>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="server-description">설명</label>
-                        <textarea id="server-description" name="description" placeholder="서버 설명 (선택사항)"></textarea>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary">서버 추가</button>
-                        <button type="button" data-action="server-form-cancel" class="btn-secondary">취소</button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="cards-container">
-                <div id="servers-list">
-                    </div>
-            </div>
-        </div>
-
-        <div id="departments-view" class="view-section hidden">
-            <div class="action-bar">
-                <h3>🏢 부서 관리</h3>
-                <div class="action-buttons">
-                    <button data-action="department-create" class="btn-primary">부서 추가</button>
-                    <button data-action="department-refresh" class="btn-secondary">새로고침</button>
-                </div>
-            </div>
-
-            <div id="department-form-modal" class="form-modal hidden">
-                <h4>새 부서 추가</h4>
-                <form id="department-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="dept-code">부서 코드</label>
-                            <input type="text" id="dept-code" name="code" required placeholder="예: IT, HR, SALES">
-                        </div>
-                        <div class="form-group">
-                            <label for="dept-name">부서명</label>
-                            <input type="text" id="dept-name" name="name" required placeholder="예: IT팀">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="dept-description">설명</label>
-                        <textarea id="dept-description" name="description" placeholder="부서 설명 (선택사항)"></textarea>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary">부서 추가</button>
-                        <button type="button" data-action="department-form-cancel" class="btn-secondary">취소</button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="cards-container">
-                <div id="departments-list">
-                    </div>
-            </div>
+             <div id="servers-list" class="cards-container">
+                <div class="empty-state">등록된 서버가 없습니다. '서버 추가' 버튼을 눌러 시작하세요.</div>
+             </div>
         </div>
 
         <div id="users-view" class="view-section hidden">
             <h2>사용자 목록</h2>
-            
             <div class="stats-section">
                 <div class="stat-item">
-                    <span class="stat-label">전체 사용자:</span>
+                    <span class="stat-label">전체 사용자</span>
                     <span id="total-users" class="stat-value">-</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">키 보유 사용자:</span>
+                    <span class="stat-label">키 보유 사용자</span>
                     <span id="users-with-keys" class="stat-value">-</span>
                 </div>
             </div>
-            
             <div id="users-list" class="users-list">
                 </div>
         </div>
 
         <div id="profile-view" class="view-section hidden">
             <h2>프로필 관리</h2>
-            
-            <div class="form-container">
-                <form id="profile-form">
-                    <div class="form-group">
-                        <label>사용자명:</label>
-                        <input type="text" name="username" placeholder="새 사용자명 (선택사항)">
-                    </div>
-                    <div class="form-group">
-                        <label>새 비밀번호:</label>
-                        <input type="password" name="password" placeholder="새 비밀번호 (선택사항)">
-                    </div>
-                    <button type="submit">프로필 업데이트</button>
-                </form>
-            </div>
-            
             <div id="current-user-info">
                 </div>
+            <div class="form-container" style="margin-top: 2rem;">
+                 <h3>프로필 업데이트</h3>
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label for="profile-username">사용자명</label>
+                        <input type="text" id="profile-username" name="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-password">새 비밀번호 (선택)</label>
+                        <input type="password" id="profile-password" name="password" placeholder="변경할 경우에만 입력">
+                    </div>
+                    <button type="submit" class="btn-primary">업데이트</button>
+                </form>
+            </div>
+        </div>
+        
+        <div id="departments-view" class="view-section hidden">
+             <h2>부서 관리</h2>
+             <div class="empty-state">부서 관리 기능은 현재 개발 중입니다.</div>
         </div>
     </div>
 </div>
 
-<div id="user-detail-modal" class="modal">
+<div id="user-detail-modal" class="modal hidden">
     <div class="modal-content">
         <div class="modal-header">
             <h3>상세 정보</h3>
-            <button class="close">&times;</button>
+            <button class="close" data-action="close-modal">&times;</button>
         </div>
-        <div id="user-detail-content">
+        <div class="modal-content-area" id="user-detail-content">
             </div>
     </div>
 </div>
 
-<div id="deploy-modal" class="modal">
+<div id="deploy-modal" class="modal hidden">
     <div class="modal-content">
         <div class="modal-header">
             <h3>키 배포</h3>
-            <button class="close">&times;</button>
+            <button class="close" data-action="close-modal">&times;</button>
         </div>
-        <div id="deploy-content">
+        <div class="modal-content-area" id="deploy-content">
             </div>
     </div>
 </div>
 
+
 <script src="js/utils.js"></script>
+<script src="js/modal-manager.js"></script>
+<script src="js/copy-manager.js"></script>
+<script src="js/view-manager.js"></script>
 <script src="js/auth-manager.js"></script>
 <script src="js/key-manager.js"></script>
 <script src="js/user-manager.js"></script>
 <script src="js/profile-manager.js"></script>
-<script src="js/copy-manager.js"></script>
-<script src="js/modal-manager.js"></script>
-<script src="js/view-manager.js"></script>
 <script src="script.js"></script>
 
 </body>

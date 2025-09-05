@@ -1,4 +1,4 @@
-// SSH Key Manager - 애플리케이션 시작점 (최소화된 부트스트랩)
+// SSH Key Manager - 애플리케이션 시작점 (최종 수정본)
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 SSH Key Manager 시작');
     
@@ -56,16 +56,25 @@ function initializeDOM() {
         serversView: document.getElementById('servers-view'),
         departmentsView: document.getElementById('departments-view'),
         
-        // 기타
-        errorDisplay: document.getElementById('error-display'),
-        usersList: document.getElementById('users-list'),
-        currentUserInfo: document.getElementById('current-user-info'),
+        // 모달 (모든 모달을 등록)
         userDetailModal: document.getElementById('user-detail-modal'),
-        userDetailContent: document.getElementById('user-detail-content'),
+        deployModal: document.getElementById('deploy-modal'),
+
+        // 키 관리
+        keyInfo: document.getElementById('key-info'),
+        keyDisplayArea: document.getElementById('key-display-area'),
+
+        // 사용자 관리
+        usersList: document.getElementById('users-list'),
         totalUsersSpan: document.getElementById('total-users'),
         usersWithKeysSpan: document.getElementById('users-with-keys'),
+
+        // 프로필
         profileForm: document.getElementById('profile-form'),
-        closeModalBtn: document.querySelector('.close')
+        currentUserInfo: document.getElementById('current-user-info'),
+
+        // 기타
+        errorDisplay: document.getElementById('error-display'),
     };
     
     console.log('✅ DOM 요소 초기화 완료');
@@ -76,9 +85,12 @@ function initializeDOM() {
  */
 function initializeManagers() {
     const managers = [
+        // 의존성 없는 유틸리티 먼저 초기화
         { name: 'Utils', manager: Utils },
-        { name: 'CopyManager', manager: CopyManager },
         { name: 'ModalManager', manager: ModalManager },
+        { name: 'CopyManager', manager: CopyManager },
+        
+        // 나머지 매니저들 초기화
         { name: 'ViewManager', manager: ViewManager },
         { name: 'AuthManager', manager: AuthManager },
         { name: 'KeyManager', manager: KeyManager },
@@ -88,21 +100,17 @@ function initializeManagers() {
     
     managers.forEach(({ name, manager }) => {
         try {
-            if (manager && manager.init) {
+            if (manager && typeof manager.init === 'function') {
                 manager.init();
-            } else if (manager && manager.setupEventListeners) {
-                // init이 없는 경우 eventListeners만 설정
-                manager.setupEventListeners();
             }
             console.log(`✅ ${name} 초기화 완료`);
         } catch (error) {
-            console.warn(`⚠️ ${name} 초기화 실패:`, error.message);
+            console.error(`⚠️ ${name} 초기화 실패:`, error);
         }
     });
 }
 
-// AppUtils는 유틸리티 파일에 정의되어야 하지만, 현재 구조를 위해 여기에 정의
-// 실제 운영 환경에서는 utils.js로 이동하여 모듈화하는 것이 좋습니다.
+// API 통신을 위한 래퍼 함수
 window.AppUtils = {
     apiFetch: async function(endpoint, method = 'GET', body = null) {
         const headers = {
@@ -115,18 +123,17 @@ window.AppUtils = {
         }
         
         const options = { method, headers };
-        if (body) options.body = JSON.stringify(body);
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
         
         try {
-            console.log(`🌐 API 요청: ${method} ${endpoint}`);
-            
             const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
             const result = await response.json();
             
-            console.log(`📦 API 응답 [${method} ${endpoint}]:`, result);
-            
             if (!response.ok) {
-                const error = new Error(result.error?.message || result.message || `HTTP ${response.status}`);
+                const errorMessage = result.error?.message || result.message || `HTTP 에러: ${response.status}`;
+                const error = new Error(errorMessage);
                 error.status = response.status;
                 error.data = result;
                 throw error;
@@ -135,19 +142,9 @@ window.AppUtils = {
             return result.data || result;
             
         } catch (error) {
-            console.error(`❌ API 오류: ${method} ${endpoint}`, error);
-            
-            if (typeof Utils !== 'undefined' && Utils.handleError) {
-                Utils.handleError(error, `API ${method} ${endpoint}`);
-            }
-            
+            console.error(`❌ API 오류 [${method} ${endpoint}]:`, error);
+            Utils.showToast(error.message, 'error');
             throw error;
-        }
-    },
-    clearError: function() {
-        if (DOM.errorDisplay) {
-            DOM.errorDisplay.textContent = '';
-            DOM.errorDisplay.style.display = 'none';
         }
     }
 };
