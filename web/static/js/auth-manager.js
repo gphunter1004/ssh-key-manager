@@ -1,31 +1,33 @@
-// 인증 관리자 - 완전 독립 버전 (UI 전환까지 담당)
+// 인증 관리자 - 완전 독립 버전
 window.AuthManager = {
+    /**
+     * AuthManager를 초기화하고 이벤트 리스너를 설정합니다.
+     */
     init: function() {
         console.log('🔐 AuthManager 초기화 시작');
         
-        // 이벤트 리스너 설정
         this.setupEventListeners();
         
         console.log('✅ AuthManager 초기화 완료');
         return true;
     },
 
+    /**
+     * 인증 관련 DOM 요소에 이벤트 리스너를 설정합니다.
+     */
     setupEventListeners: function() {
         console.log('🎯 AuthManager 이벤트 리스너 설정');
         
-        // 로그인 폼
         if (DOM.loginForm) {
             DOM.loginForm.onsubmit = (e) => this.handleLogin(e);
             console.log('✅ 로그인 폼 이벤트 설정');
         }
 
-        // 회원가입 폼
         if (DOM.registerForm) {
             DOM.registerForm.onsubmit = (e) => this.handleRegister(e);
             console.log('✅ 회원가입 폼 이벤트 설정');
         }
 
-        // 로그인/회원가입 전환 링크
         if (DOM.showRegisterLink) {
             DOM.showRegisterLink.onclick = (e) => {
                 e.preventDefault();
@@ -42,7 +44,6 @@ window.AuthManager = {
             console.log('✅ 로그인 링크 이벤트 설정');
         }
 
-        // 로그아웃 버튼
         if (DOM.logoutBtn) {
             DOM.logoutBtn.onclick = (e) => {
                 e.preventDefault();
@@ -54,6 +55,10 @@ window.AuthManager = {
         console.log('✅ AuthManager 모든 이벤트 설정 완료');
     },
 
+    /**
+     * 로그인 폼 제출을 처리합니다.
+     * @param {Event} e - 폼 제출 이벤트 객체
+     */
     handleLogin: async function(e) {
         e.preventDefault();
         
@@ -61,46 +66,47 @@ window.AuthManager = {
         const password = e.target.elements['password']?.value;
 
         if (!username || !password) {
-            this.showMessage('사용자명과 비밀번호를 모두 입력해주세요', 'warning');
+            Utils.showToast('사용자명과 비밀번호를 모두 입력해주세요', 'warning');
             return;
         }
 
         try {
             console.log('🔐 로그인 시도:', username);
-            this.setLoading(true, '로그인 중...');
+            Utils.setLoading(true, '로그인 중...');
             
             const data = await AppUtils.apiFetch('/login', 'POST', {
                 username: username,
                 password: password
             });
 
-            // AppState 업데이트
             AppState.jwtToken = data.token;
             localStorage.setItem('jwtToken', AppState.jwtToken);
             
             AppState.currentUser = {
-                id: data.user_id || data.id || 1,
-                username: data.username || username,
-                role: data.role || 'user'
+                id: data.user_id || data.id,
+                username: data.username,
+                role: data.role
             };
             
             console.log('✅ 로그인 성공:', AppState.currentUser);
-            this.showMessage(`환영합니다, ${username}님!`, 'success');
+            Utils.showToast(`환영합니다, ${username}님!`, 'success');
             
-            // 🔥 AuthManager가 직접 UI 전환 처리
             this.switchToMainView();
             
-            // 로그인 폼 초기화
             e.target.reset();
             
         } catch (error) {
             console.error('❌ 로그인 실패:', error.message);
-            this.showMessage('로그인 실패: ' + error.message, 'error');
+            Utils.showToast('로그인 실패: ' + error.message, 'error');
         } finally {
-            this.setLoading(false);
+            Utils.setLoading(false);
         }
     },
 
+    /**
+     * 회원가입 폼 제출을 처리합니다.
+     * @param {Event} e - 폼 제출 이벤트 객체
+     */
     handleRegister: async function(e) {
         e.preventDefault();
         
@@ -108,37 +114,35 @@ window.AuthManager = {
         const password = e.target.elements['password']?.value;
 
         if (!username || !password) {
-            this.showMessage('사용자명과 비밀번호를 모두 입력해주세요', 'warning');
+            Utils.showToast('사용자명과 비밀번호를 모두 입력해주세요', 'warning');
             return;
         }
 
         if (username.length < 2) {
-            this.showMessage('사용자명은 최소 2자 이상이어야 합니다', 'warning');
+            Utils.showToast('사용자명은 최소 2자 이상이어야 합니다', 'warning');
             return;
         }
 
         if (password.length < 4) {
-            this.showMessage('비밀번호는 최소 4자 이상이어야 합니다', 'warning');
+            Utils.showToast('비밀번호는 최소 4자 이상이어야 합니다', 'warning');
             return;
         }
 
         try {
             console.log('📝 회원가입 시도:', username);
-            this.setLoading(true, '회원가입 중...');
+            Utils.setLoading(true, '회원가입 중...');
             
             await AppUtils.apiFetch('/register', 'POST', {
                 username: username,
                 password: password
             });
 
-            this.showMessage(`${username}님, 회원가입이 완료되었습니다!`, 'success');
+            Utils.showToast(`${username}님, 회원가입이 완료되었습니다!`, 'success');
             console.log('✅ 회원가입 성공:', username);
             
-            // 폼 초기화 및 로그인 화면으로 전환
             e.target.reset();
             this.showLoginView();
             
-            // 로그인 폼에 사용자명 자동 입력
             if (DOM.loginForm && DOM.loginForm.elements['username']) {
                 DOM.loginForm.elements['username'].value = username;
                 DOM.loginForm.elements['password']?.focus();
@@ -146,177 +150,121 @@ window.AuthManager = {
             
         } catch (error) {
             console.error('❌ 회원가입 실패:', error.message);
-            this.showMessage('회원가입 실패: ' + error.message, 'error');
+            Utils.showToast('회원가입 실패: ' + error.message, 'error');
         } finally {
-            this.setLoading(false);
+            Utils.setLoading(false);
         }
     },
 
+    /**
+     * 로그아웃을 처리합니다.
+     */
     handleLogout: function() {
         console.log('🚪 로그아웃 실행');
         
         const username = AppState.currentUser?.username || '사용자';
         
-        // 상태 초기화
-        AppState.jwtToken = null;
-        AppState.currentUser = null;
-        AppState.currentView = 'keys';
-        
-        // 로컬 스토리지에서 토큰 제거
-        localStorage.removeItem('jwtToken');
-        
-        // 🔥 AuthManager가 직접 UI 전환 처리
-        this.switchToAuthView();
-        
-        // 에러 클리어
-        AppUtils.clearError();
-        
-        // 키 정보 숨기기
-        if (typeof KeyManager !== 'undefined' && KeyManager.hideKeys) {
-            KeyManager.hideKeys();
+        try {
+            Utils.setLoading(true, '로그아웃 중...');
+
+            AppState.jwtToken = null;
+            AppState.currentUser = null;
+            AppState.currentView = 'keys';
+            
+            localStorage.removeItem('jwtToken');
+            
+            this.switchToAuthView();
+            
+            AppUtils.clearError();
+            
+            if (typeof KeyManager !== 'undefined' && KeyManager.hideKeys) {
+                KeyManager.hideKeys();
+            }
+            
+            this.resetAllForms();
+            
+            Utils.showToast(`${username}님, 안전하게 로그아웃되었습니다`, 'info');
+        } catch (error) {
+            console.error('❌ 로그아웃 실패:', error.message);
+            Utils.showToast('로그아웃 중 오류가 발생했습니다', 'error');
+        } finally {
+            Utils.setLoading(false);
         }
-        
-        // 모든 폼 초기화
-        this.resetAllForms();
-        
-        this.showMessage(`${username}님, 안전하게 로그아웃되었습니다`, 'info');
     },
 
-    // 🔥 AuthManager가 UI 전환 담당
+    /**
+     * 로그인 성공 후 메인 화면으로 전환합니다.
+     */
     switchToMainView: function() {
-        console.log('🎨 메인 화면으로 전환 (AuthManager)');
+        console.log('🎨 메인 화면으로 전환');
         
-        // 인증 섹션 숨기기
-        if (DOM.authSection) {
-            DOM.authSection.classList.add('hidden');
-            console.log('  - 인증 섹션 숨김');
-        }
+        if (DOM.authSection) DOM.authSection.classList.add('hidden');
+        if (DOM.keySection) DOM.keySection.classList.remove('hidden');
+        if (DOM.container) DOM.container.classList.add('container-wide');
         
-        // 메인 섹션 표시
-        if (DOM.keySection) {
-            DOM.keySection.classList.remove('hidden');
-            console.log('  - 메인 섹션 표시');
-        }
-        
-        // 컨테이너 확장
-        if (DOM.container) {
-            DOM.container.classList.add('container-wide');
-            console.log('  - 컨테이너 확장');
-        }
-        
-        // 네비게이션 업데이트
         this.updateNavigation();
         
-        // ViewManager에게 키 뷰 표시 요청
+        // ViewManager의 showView 호출이 비동기적으로 로딩 상태를 관리하므로,
+        // 여기서는 별도의 로딩 상태 관리를 하지 않습니다.
         if (typeof ViewManager !== 'undefined' && ViewManager.showView) {
             ViewManager.showView('keys');
         } else {
-            // ViewManager가 없으면 직접 처리
-            this.showKeysViewDirect();
+            console.warn('⚠️ ViewManager를 찾을 수 없음. 뷰 전환을 건너뜁니다.');
         }
         
         console.log('✅ 메인 화면 전환 완료');
     },
 
+    /**
+     * 로그아웃 후 인증 화면으로 전환합니다.
+     */
     switchToAuthView: function() {
-        console.log('🎨 인증 화면으로 전환 (AuthManager)');
+        console.log('🎨 인증 화면으로 전환');
         
-        // 메인 섹션 숨기기
-        if (DOM.keySection) {
-            DOM.keySection.classList.add('hidden');
-            console.log('  - 메인 섹션 숨김');
-        }
+        if (DOM.keySection) DOM.keySection.classList.add('hidden');
+        if (DOM.authSection) DOM.authSection.classList.remove('hidden');
+        if (DOM.container) DOM.container.classList.remove('container-wide');
         
-        // 인증 섹션 표시
-        if (DOM.authSection) {
-            DOM.authSection.classList.remove('hidden');
-            console.log('  - 인증 섹션 표시');
-        }
-        
-        // 컨테이너 축소
-        if (DOM.container) {
-            DOM.container.classList.remove('container-wide');
-            console.log('  - 컨테이너 축소');
-        }
-        
-        // 로그인 화면 표시
         this.showLoginView();
         
         console.log('✅ 인증 화면 전환 완료');
     },
 
+    /**
+     * 네비게이션 버튼을 사용자 역할에 따라 업데이트합니다.
+     */
     updateNavigation: function() {
         const isAdmin = AppState.currentUser?.role === 'admin';
         console.log('👤 네비게이션 업데이트 - 관리자:', isAdmin);
         
-        // 관리자 전용 버튼 표시/숨김
-        if (DOM.navUsers) {
-            DOM.navUsers.style.display = isAdmin ? 'inline-block' : 'none';
-        }
-        if (DOM.navDepartments) {
-            DOM.navDepartments.style.display = isAdmin ? 'inline-block' : 'none';
-        }
+        if (DOM.navUsers) DOM.navUsers.style.display = isAdmin ? 'inline-block' : 'none';
+        if (DOM.navDepartments) DOM.navDepartments.style.display = isAdmin ? 'inline-block' : 'none';
         
         console.log('✅ 네비게이션 권한 업데이트 완료');
     },
 
+    /**
+     * 로그인 폼을 표시합니다.
+     */
     showLoginView: function() {
-        if (DOM.registerView) {
-            DOM.registerView.classList.add('hidden');
-        }
-        if (DOM.loginView) {
-            DOM.loginView.classList.remove('hidden');
-        }
+        if (DOM.registerView) DOM.registerView.classList.add('hidden');
+        if (DOM.loginView) DOM.loginView.classList.remove('hidden');
         console.log('🔐 로그인 화면 표시');
     },
 
+    /**
+     * 회원가입 폼을 표시합니다.
+     */
     showRegisterView: function() {
-        if (DOM.loginView) {
-            DOM.loginView.classList.add('hidden');
-        }
-        if (DOM.registerView) {
-            DOM.registerView.classList.remove('hidden');
-        }
+        if (DOM.loginView) DOM.loginView.classList.add('hidden');
+        if (DOM.registerView) DOM.registerView.classList.remove('hidden');
         console.log('📝 회원가입 화면 표시');
     },
 
-    // ViewManager가 없을 때 직접 키 뷰 표시
-    showKeysViewDirect: function() {
-        // 모든 뷰 숨기기
-        const views = ['keysView', 'usersView', 'profileView', 'serversView', 'departmentsView'];
-        views.forEach(view => {
-            if (DOM[view]) {
-                DOM[view].classList.add('hidden');
-            }
-        });
-
-        // 모든 네비게이션 비활성화
-        const navs = ['navKeys', 'navUsers', 'navProfile', 'navServers', 'navDepartments'];
-        navs.forEach(nav => {
-            if (DOM[nav]) {
-                DOM[nav].classList.remove('active');
-            }
-        });
-
-        // 키 뷰 활성화
-        if (DOM.keysView) {
-            DOM.keysView.classList.remove('hidden');
-        }
-        if (DOM.navKeys) {
-            DOM.navKeys.classList.add('active');
-        }
-
-        AppState.currentView = 'keys';
-
-        // KeyManager에게 키 로드 요청
-        if (typeof KeyManager !== 'undefined' && KeyManager.autoLoadKeys) {
-            KeyManager.autoLoadKeys();
-        }
-
-        console.log('🔑 키 뷰 직접 표시 완료');
-    },
-
-    // 토큰 유효성 검사
+    /**
+     * JWT 토큰의 유효성을 검사합니다.
+     * @returns {Promise<boolean>} - 토큰이 유효하면 true, 아니면 false
+     */
     validateToken: async function() {
         if (!AppState.jwtToken) {
             return false;
@@ -343,26 +291,31 @@ window.AuthManager = {
         return false;
     },
 
-    // 자동 로그인 확인
-    checkAutoLogin: async function() {
+    /**
+     * 로컬 스토리지의 토큰을 사용하여 자동 로그인을 시도합니다.
+     * @returns {Promise<boolean>} - 자동 로그인 성공 여부
+     */
+    checkLoginStatus: async function() {
         console.log('🔍 자동 로그인 확인 중...');
         
         if (AppState.jwtToken) {
             const isValid = await this.validateToken();
             if (isValid) {
                 console.log('✅ 자동 로그인 성공');
-                this.showMessage(`안녕하세요, ${AppState.currentUser?.username || '사용자'}님!`, 'success');
+                Utils.showToast(`안녕하세요, ${AppState.currentUser?.username || '사용자'}님!`, 'success');
                 this.switchToMainView();
                 return true;
             }
-        } else {
-            console.log('📝 저장된 토큰 없음');
-            this.switchToAuthView();
         }
+        
+        console.log('📝 저장된 토큰 없음 또는 유효하지 않음');
+        this.switchToAuthView();
         return false;
     },
 
-    // 헬퍼 함수들
+    /**
+     * 모든 폼을 초기화합니다.
+     */
     resetAllForms: function() {
         try {
             const forms = [DOM.loginForm, DOM.registerForm, DOM.profileForm];
@@ -377,38 +330,15 @@ window.AuthManager = {
         }
     },
 
-    setLoading: function(isLoading, message = '처리 중...') {
-        if (typeof Utils !== 'undefined' && Utils.setLoading) {
-            Utils.setLoading(isLoading, message);
-        } else {
-            console.log(`로딩 상태: ${isLoading} - ${message}`);
-        }
-    },
-
-    showMessage: function(message, type = 'info') {
-        if (typeof Utils !== 'undefined' && Utils.showToast) {
-            Utils.showToast(message, type);
-        } else {
-            console.log(`[${type.toUpperCase()}] ${message}`);
-            
-            // 중요한 메시지는 alert으로도 표시
-            if (type === 'error' || type === 'warning') {
-                alert(message);
-            }
-        }
-    },
-
-    // 인증 상태 확인
+    // 헬퍼 함수들 (외부에서 사용 가능한 메서드)
     isAuthenticated: function() {
         return !!(AppState.jwtToken && AppState.currentUser);
     },
 
-    // 관리자 권한 확인
     isAdmin: function() {
         return AppState.currentUser?.role === 'admin';
     },
 
-    // 현재 사용자 정보 가져오기
     getCurrentUser: function() {
         return AppState.currentUser;
     }

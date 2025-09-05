@@ -5,10 +5,7 @@ window.ProfileManager = {
 
     init: function() {
         console.log('👤 ProfileManager 초기화 시작');
-        
-        // 이벤트 리스너 설정
         this.setupEventListeners();
-        
         console.log('✅ ProfileManager 초기화 완료');
         return true;
     },
@@ -16,13 +13,11 @@ window.ProfileManager = {
     setupEventListeners: function() {
         console.log('🎯 ProfileManager 이벤트 리스너 설정');
         
-        // 프로필 업데이트 폼 제출
         if (DOM.profileForm) {
             DOM.profileForm.onsubmit = (e) => this.handleProfileUpdate(e);
             console.log('✅ 프로필 폼 이벤트 설정');
         }
         
-        // 실시간 입력 검증
         const usernameInput = document.querySelector('#profile-form input[name="username"]');
         const passwordInput = document.querySelector('#profile-form input[name="password"]');
         
@@ -50,13 +45,11 @@ window.ProfileManager = {
         this.isLoading = true;
         
         try {
-            // 로딩 상태 표시
-            this.setLoadingState('프로필 정보를 불러오는 중...');
+            Utils.setLoading(true, '프로필 정보를 불러오는 중...');
             
             const userData = await AppUtils.apiFetch('/users/me', 'GET');
             
             this.currentProfile = userData;
-            // AppState도 업데이트 (최신 정보 반영)
             AppState.currentUser = {
                 ...AppState.currentUser,
                 ...userData
@@ -64,10 +57,7 @@ window.ProfileManager = {
             
             console.log('✅ 프로필 로드 성공:', userData.username);
             
-            // 프로필 정보 표시
             this.displayCurrentUserInfo(userData);
-            
-            // 폼에 현재 값 설정
             this.populateForm(userData);
             
         } catch (error) {
@@ -75,7 +65,7 @@ window.ProfileManager = {
             this.showProfileError('프로필 정보를 불러올 수 없습니다: ' + error.message);
         } finally {
             this.isLoading = false;
-            this.clearLoadingState();
+            Utils.setLoading(false);
         }
     },
 
@@ -87,81 +77,59 @@ window.ProfileManager = {
             return;
         }
 
-        let sshKeyInfo = '';
-        
-        if (userData.has_ssh_key) {
-            // SSH 키 정보가 있는 경우
-            const keyCreated = userData.ssh_key ? 
-                new Date(userData.ssh_key.created_at).toLocaleString('ko-KR') : 
-                '정보 없음';
-            const keyUpdated = userData.ssh_key ? 
-                new Date(userData.ssh_key.updated_at).toLocaleString('ko-KR') : 
-                '정보 없음';
-            
-            sshKeyInfo = `
-                <div class="user-detail">
-                    <strong>SSH 키:</strong> 
-                    <span class="key-status has-key">보유</span>
-                    (RSA 4096bits)
-                </div>
-                <div class="user-detail">
-                    <strong>키 생성일:</strong> ${keyCreated}
-                </div>
-                <div class="user-detail">
-                    <strong>키 수정일:</strong> ${keyUpdated}
-                </div>
-            `;
-        } else {
-            sshKeyInfo = `
-                <div class="user-detail">
-                    <strong>SSH 키:</strong> 
-                    <span class="key-status no-key">없음</span>
-                    <small> - 키 관리 탭에서 생성하세요</small>
-                </div>
-            `;
-        }
-
-        const joinedDate = new Date(userData.created_at).toLocaleString('ko-KR');
-        const lastUpdate = new Date(userData.updated_at).toLocaleString('ko-KR');
+        const joinedDate = userData.created_at ? Utils.formatDate(userData.created_at) : '정보 없음';
+        const lastUpdate = userData.updated_at ? Utils.formatDate(userData.updated_at) : '정보 없음';
 
         DOM.currentUserInfo.innerHTML = `
-            <h3>현재 프로필 정보</h3>
-            <div class="profile-summary">
-                <div class="user-detail">
-                    <strong>사용자명:</strong> 
-                    <span class="username">${this.escapeHtml(userData.username)}</span>
+            <div class="profile-card">
+                <div class="profile-header">
+                    <h3>현재 프로필 정보</h3>
                 </div>
-                <div class="user-detail">
-                    <strong>사용자 ID:</strong> ${userData.id}
+                <div class="profile-table-container">
+                    <div class="profile-table-row">
+                        <div class="profile-table-label">사용자명:</div>
+                        <div class="profile-table-value">${Utils.escapeHtml(userData.username)}</div>
+                    </div>
+                    <div class="profile-table-row">
+                        <div class="profile-table-label">사용자 ID:</div>
+                        <div class="profile-table-value">${userData.id}</div>
+                    </div>
+                    <div class="profile-table-row">
+                        <div class="profile-table-label">역할:</div>
+                        <div class="profile-table-value">${userData.role === 'admin' ? '관리자' : '일반 사용자'}</div>
+                    </div>
+                    <div class="profile-table-row">
+                        <div class="profile-table-label">가입일:</div>
+                        <div class="profile-table-value">${joinedDate}</div>
+                    </div>
+                    <div class="profile-table-row">
+                        <div class="profile-table-label">마지막 업데이트:</div>
+                        <div class="profile-table-value">${lastUpdate}</div>
+                    </div>
+                    <div class="profile-table-row">
+                        <div class="profile-table-label">SSH 키 상태:</div>
+                        <div class="profile-table-value">
+                            <span class="key-status ${userData.has_ssh_key ? 'has-key' : 'no-key'}">
+                                ${userData.has_ssh_key ? '🔑 보유' : '❌ 없음'}
+                            </span>
+                        </div>
+                    </div>
                 </div>
-                <div class="user-detail">
-                    <strong>역할:</strong> ${userData.role === 'admin' ? '관리자' : '일반 사용자'}
+                <div class="profile-actions-wrapper">
+                    <button type="button" class="btn-secondary btn-sm" onclick="ProfileManager.refreshProfile()">
+                        🔄 새로고침
+                    </button>
+                    <button type="button" class="btn-primary btn-sm" onclick="ProfileManager.checkKeyStatus()">
+                        🔑 키 상태 확인
+                    </button>
                 </div>
-                <div class="user-detail">
-                    <strong>가입일:</strong> ${joinedDate}
-                </div>
-                <div class="user-detail">
-                    <strong>마지막 업데이트:</strong> ${lastUpdate}
-                </div>
-                ${sshKeyInfo}
-            </div>
-            <div class="profile-actions">
-                <button type="button" class="btn-secondary" onclick="ProfileManager.refreshProfile()">
-                    🔄 새로고침
-                </button>
-                <button type="button" class="btn-secondary" onclick="ProfileManager.checkKeyStatus()">
-                    🔑 키 상태 확인
-                </button>
             </div>
         `;
-        
-        console.log('✅ 프로필 정보 표시 완료');
     },
 
     populateForm: function(userData) {
         console.log('📝 프로필 폼 데이터 설정');
         
-        // 폼 필드에 현재 값 설정
         const usernameInput = document.querySelector('#profile-form input[name="username"]');
         const passwordInput = document.querySelector('#profile-form input[name="password"]');
         
@@ -172,13 +140,11 @@ window.ProfileManager = {
         }
         
         if (passwordInput) {
-            passwordInput.value = ''; // 비밀번호는 항상 빈 값으로 시작
+            passwordInput.value = '';
             passwordInput.placeholder = '새 비밀번호 (변경하지 않으려면 빈 상태로 두세요)';
         }
         
-        // 폼 검증 상태 초기화
         this.clearFormValidation();
-        
         console.log('✅ 프로필 폼 데이터 설정 완료');
     },
 
@@ -192,7 +158,6 @@ window.ProfileManager = {
         const newPassword = formData.get('password')?.trim();
         const originalUsername = e.target.querySelector('input[name="username"]')?.dataset.originalValue;
         
-        // 변경사항 확인
         const updateData = {};
         let hasChanges = false;
         
@@ -207,11 +172,10 @@ window.ProfileManager = {
         }
         
         if (!hasChanges) {
-            this.showMessage('변경할 내용이 없습니다.', 'info');
+            Utils.showToast('변경할 내용이 없습니다.', 'info');
             return;
         }
         
-        // 사용자 확인
         const confirmUpdate = this.getUpdateConfirmation(updateData);
         if (!confirm(confirmUpdate)) {
             console.log('ℹ️ 프로필 업데이트 취소됨');
@@ -219,35 +183,30 @@ window.ProfileManager = {
         }
         
         try {
-            // 로딩 상태 표시
-            this.setFormLoadingState(true);
+            Utils.setLoading(true, '프로필 업데이트 중...');
             
             const result = await AppUtils.apiFetch('/users/me', 'PUT', updateData);
             
             console.log('✅ 프로필 업데이트 성공:', result);
             
-            // 성공 메시지
-            this.showMessage('프로필이 성공적으로 업데이트되었습니다!', 'success');
+            Utils.showToast('프로필이 성공적으로 업데이트되었습니다!', 'success');
             
-            // 사용자명이 변경된 경우 AppState 업데이트
             if (updateData.username) {
                 AppState.currentUser.username = updateData.username;
             }
             
-            // 비밀번호 필드 클리어
             const passwordInput = e.target.querySelector('input[name="password"]');
             if (passwordInput) {
                 passwordInput.value = '';
             }
             
-            // 프로필 정보 다시 로드
             await this.loadCurrentUserProfile();
             
         } catch (error) {
             console.error('❌ 프로필 업데이트 실패:', error.message);
-            this.showMessage('프로필 업데이트 실패: ' + error.message, 'error');
+            Utils.showToast('프로필 업데이트 실패: ' + error.message, 'error');
         } finally {
-            this.setFormLoadingState(false);
+            Utils.setLoading(false);
         }
     },
 
@@ -272,7 +231,6 @@ window.ProfileManager = {
         const username = input.value.trim();
         const originalUsername = input.dataset.originalValue;
         
-        // 검증 메시지 요소 찾기 또는 생성
         let messageEl = input.parentNode.querySelector('.validation-message');
         if (!messageEl) {
             messageEl = document.createElement('div');
@@ -280,7 +238,6 @@ window.ProfileManager = {
             input.parentNode.appendChild(messageEl);
         }
         
-        // 검증 로직
         if (username === '') {
             this.setValidationMessage(messageEl, '', 'none');
             return;
@@ -313,7 +270,6 @@ window.ProfileManager = {
         const input = e.target;
         const password = input.value;
         
-        // 검증 메시지 요소 찾기 또는 생성
         let messageEl = input.parentNode.querySelector('.validation-message');
         if (!messageEl) {
             messageEl = document.createElement('div');
@@ -321,7 +277,6 @@ window.ProfileManager = {
             input.parentNode.appendChild(messageEl);
         }
         
-        // 검증 로직
         if (password === '') {
             this.setValidationMessage(messageEl, '비밀번호를 변경하지 않으려면 빈 상태로 두세요', 'info');
             return;
@@ -337,7 +292,6 @@ window.ProfileManager = {
             return;
         }
         
-        // 비밀번호 강도 검사
         const strength = this.checkPasswordStrength(password);
         this.setValidationMessage(messageEl, `비밀번호 강도: ${strength.text}`, strength.type);
     },
@@ -365,7 +319,6 @@ window.ProfileManager = {
         element.className = `validation-message ${type}`;
         element.style.display = message ? 'block' : 'none';
         
-        // 타입별 색상 설정
         const colors = {
             'error': '#e74c3c',
             'warning': '#f39c12',
@@ -392,42 +345,8 @@ window.ProfileManager = {
         
         if (!username || username === originalUsername) return;
         
-        // 기본 검증 통과한 경우에만 중복 확인
         if (username.length >= 2 && /^[a-zA-Z0-9_-]+$/.test(username)) {
             console.log('🔍 사용자명 가용성 확인:', username);
-            // 실제로는 서버에서 중복 확인 API가 있어야 하지만,
-            // 현재는 업데이트 시점에 확인하므로 여기서는 생략
-        }
-    },
-
-    setLoadingState: function(message) {
-        if (DOM.currentUserInfo) {
-            DOM.currentUserInfo.innerHTML = `<div class="loading-message">${message}</div>`;
-        }
-    },
-
-    clearLoadingState: function() {
-        // loadCurrentUserProfile에서 자동으로 클리어됨
-    },
-
-    setFormLoadingState: function(isLoading) {
-        if (!DOM.profileForm) return;
-        
-        const submitBtn = DOM.profileForm.querySelector('button[type="submit"]');
-        const inputs = DOM.profileForm.querySelectorAll('input');
-        
-        if (isLoading) {
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = '업데이트 중...';
-            }
-            inputs.forEach(input => input.disabled = true);
-        } else {
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = '프로필 업데이트';
-            }
-            inputs.forEach(input => input.disabled = false);
         }
     },
 
@@ -435,7 +354,7 @@ window.ProfileManager = {
         if (DOM.currentUserInfo) {
             DOM.currentUserInfo.innerHTML = `
                 <div class="error-message">
-                    ❌ ${this.escapeHtml(message)}
+                    ❌ ${Utils.escapeHtml(message)}
                     <button type="button" onclick="ProfileManager.loadCurrentUserProfile()" class="btn-primary" style="margin-top:10px;">
                         다시 시도
                     </button>
@@ -452,46 +371,18 @@ window.ProfileManager = {
     checkKeyStatus: function() {
         console.log('🔑 키 상태 확인 요청');
         
-        // ViewManager에게 키 뷰로 전환 요청
         if (typeof ViewManager !== 'undefined' && ViewManager.showView) {
             ViewManager.showView('keys');
-            this.showMessage('키 관리 화면으로 이동합니다', 'info');
+            Utils.showToast('키 관리 화면으로 이동합니다', 'info');
         } else {
-            this.showMessage('키 관리 화면으로 이동할 수 없습니다', 'warning');
+            Utils.showToast('키 관리 화면으로 이동할 수 없습니다', 'warning');
         }
     },
 
-    // 메시지 표시
-    showMessage: function(message, type = 'info') {
-        if (typeof Utils !== 'undefined' && Utils.showToast) {
-            Utils.showToast(message, type);
-        } else {
-            console.log(`[${type.toUpperCase()}] ${message}`);
-            
-            // 중요한 메시지는 alert으로도 표시
-            if (type === 'error' || type === 'warning') {
-                alert(message);
-            }
-        }
-    },
-
-    // HTML 이스케이프 유틸리티
-    escapeHtml: function(unsafe) {
-        if (!unsafe) return '';
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    },
-
-    // 현재 프로필 정보 반환
     getCurrentProfile: function() {
         return this.currentProfile;
     },
 
-    // 디버깅 정보
     getDebugInfo: function() {
         return {
             currentProfile: this.currentProfile,

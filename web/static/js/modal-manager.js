@@ -3,10 +3,23 @@ window.ModalManager = {
     isOpen: false,
     currentModalData: null,
 
+    init: function() {
+        console.log('📱 ModalManager 초기화 시작');
+        
+        // 이벤트 리스너 설정
+        this.setupEventListeners();
+        
+        // 초기 모달 크기 설정
+        this.adjustModalSize();
+        
+        console.log('✅ ModalManager 초기화 완료');
+        return true;
+    },
+
     setupEventListeners: function() {
         // 모달 닫기 버튼
         if (DOM.closeModalBtn) {
-            DOM.closeModalBtn.addEventListener('click', this.closeModal);
+            DOM.closeModalBtn.addEventListener('click', () => this.closeModal());
         }
         
         // 모달 배경 클릭으로 닫기
@@ -25,7 +38,10 @@ window.ModalManager = {
             }
         });
         
-        console.log('ModalManager 이벤트 리스너 설정 완료');
+        // 윈도우 리사이즈 시 모달 크기 조정
+        window.addEventListener('resize', () => this.adjustModalSize());
+        
+        console.log('✅ ModalManager 이벤트 리스너 설정 완료');
     },
 
     showModal: function() {
@@ -48,8 +64,8 @@ window.ModalManager = {
             DOM.userDetailModal.style.display = 'none';
         }
         
-        ModalManager.isOpen = false;
-        ModalManager.currentModalData = null;
+        this.isOpen = false;
+        this.currentModalData = null;
         
         // 스크롤 복원
         document.body.style.overflow = '';
@@ -77,10 +93,10 @@ window.ModalManager = {
     showErrorModal: function(message) {
         if (DOM.userDetailContent) {
             DOM.userDetailContent.innerHTML = `
-                <div class="modal-error" style="text-align:center;padding:40px;">
-                    <div class="error-icon" style="font-size:3rem;margin-bottom:20px;">❌</div>
-                    <h3 style="color:#e74c3c;margin-bottom:15px;">오류 발생</h3>
-                    <p style="color:#666;margin-bottom:20px;">${this.escapeHtml(message)}</p>
+                <div class="modal-error">
+                    <div class="error-icon">❌</div>
+                    <h3>오류 발생</h3>
+                    <p>${Utils.escapeHtml(message)}</p>
                     <button type="button" class="btn-primary" onclick="ModalManager.closeModal()">
                         확인
                     </button>
@@ -90,77 +106,66 @@ window.ModalManager = {
         this.showModal();
     },
 
-    displayUserDetail: function(userData) {
+    displayUserDetail: async function(userData) {
         this.currentModalData = userData;
         
         console.log('사용자 상세 정보 모달 표시:', userData.username);
         
-        // 기본 사용자 정보
         const userInfo = this.generateUserInfo(userData);
+        const sshKeyInfo = await this.generateSSHKeyInfo(userData);
+        const actionButtons = this.generateActionButtons(userData);
         
-        // SSH 키 정보
-        const sshKeyInfo = this.generateSSHKeyInfo(userData);
-        
-        // 활동 정보
-        const activityInfo = this.generateActivityInfo(userData);
-        
-        // 모달 제목 업데이트
         const modalTitle = document.querySelector('.modal-header h3');
         if (modalTitle) {
             modalTitle.textContent = `${userData.username} 상세 정보`;
         }
         
-        // 모달 내용 구성
         if (DOM.userDetailContent) {
             DOM.userDetailContent.innerHTML = `
                 <div class="user-detail-container">
                     ${userInfo}
                     ${sshKeyInfo}
-                    ${activityInfo}
-                    ${this.generateActionButtons(userData)}
+                    ${actionButtons}
                 </div>
             `;
         }
         
         this.showModal();
-        
-        // SSH 키 복사 버튼 이벤트 설정
-        this.setupKeyActions(userData);
     },
 
     generateUserInfo: function(userData) {
-        const createdDate = new Date(userData.created_at).toLocaleString('ko-KR');
-        const updatedDate = new Date(userData.updated_at).toLocaleString('ko-KR');
+        const createdDate = userData.created_at ? Utils.formatDate(userData.created_at, {year: 'numeric', month: 'short', day: 'numeric'}) : '정보 없음';
+        const updatedDate = userData.updated_at ? Utils.formatDate(userData.updated_at) : '정보 없음';
         const isCurrentUser = UserManager.isCurrentUser(userData.id);
         const isAdmin = userData.role === 'admin';
         
         return `
-            <div class="user-basic-info" style="margin-bottom:25px;">
-                <h3 style="margin:0 0 20px 0;color:#212529;text-align:left;">
+            <div class="user-basic-info">
+                <h3 class="modal-subheader">
                     기본 정보 
-                    ${isCurrentUser ? '<span class="current-user-badge" style="background:#007bff;color:white;padding:4px 8px;border-radius:12px;font-size:0.75rem;margin-left:10px;">현재 사용자</span>' : ''}
-                    ${isAdmin ? '<span class="admin-badge" style="background:#ffc107;color:#212529;padding:4px 8px;border-radius:12px;font-size:0.75rem;margin-left:10px;">관리자</span>' : ''}
+                    ${isCurrentUser ? '<span class="current-user-badge">현재 사용자</span>' : ''}
+                    ${isAdmin ? '<span class="admin-badge">관리자</span>' : ''}
                 </h3>
-                <div class="info-grid" style="display:grid;gap:12px;">
-                    <div class="info-item" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
+                <div class="info-grid">
+                    <div class="info-item">
                         <strong>사용자명:</strong> 
-                        <span class="username">${this.escapeHtml(userData.username)}</span>
+                        <span class="username">${Utils.escapeHtml(userData.username)}</span>
                     </div>
-                    <div class="info-item" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
+                    <div class="info-item">
                         <strong>사용자 ID:</strong> ${userData.id}
                     </div>
-                    <div class="info-item" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
+                    <div class="info-item">
                         <strong>역할:</strong> ${isAdmin ? '관리자' : '일반 사용자'}
                     </div>
-                    <div class="info-item" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
+                    <div class="info-item">
                         <strong>가입일:</strong> ${createdDate}
                     </div>
-                    <div class="info-item" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
+                    <div class="info-item">
                         <strong>마지막 업데이트:</strong> ${updatedDate}
                     </div>
-                    <div class="info-item" style="display:flex;justify-content:space-between;padding:8px 0;">
+                    <div class="info-item">
                         <strong>SSH 키 상태:</strong> 
-                        <span class="key-status ${userData.has_ssh_key ? 'has-key' : 'no-key'}" style="color:${userData.has_ssh_key ? '#28a745' : '#dc3545'};font-weight:600;">
+                        <span class="key-status ${userData.has_ssh_key ? 'has-key' : 'no-key'}">
                             ${userData.has_ssh_key ? '🔑 보유' : '❌ 없음'}
                         </span>
                     </div>
@@ -169,12 +174,12 @@ window.ModalManager = {
         `;
     },
 
-    generateSSHKeyInfo: function(userData) {
-        if (!userData.has_ssh_key || !userData.ssh_key) {
+    generateSSHKeyInfo: async function(userData) {
+        if (!userData.has_ssh_key) {
             return `
-                <div class="ssh-key-section" style="margin-bottom:25px;">
-                    <h3 style="margin:0 0 15px 0;color:#212529;text-align:left;">SSH 키 정보</h3>
-                    <div class="no-key-message" style="text-align:center;padding:20px;background:#f8f9fa;border-radius:8px;color:#666;">
+                <div class="ssh-key-section">
+                    <h3 class="modal-subheader">SSH 키 정보</h3>
+                    <div class="no-key-message">
                         <p>SSH 키가 생성되지 않았습니다.</p>
                         ${UserManager.isCurrentUser(userData.id) ? 
                             '<p><small>키 관리 탭에서 SSH 키를 생성할 수 있습니다.</small></p>' : 
@@ -184,118 +189,109 @@ window.ModalManager = {
             `;
         }
 
-        const keyCreated = new Date(userData.ssh_key.created_at).toLocaleString('ko-KR');
-        const keyUpdated = new Date(userData.ssh_key.updated_at).toLocaleString('ko-KR');
         const isCurrentUser = UserManager.isCurrentUser(userData.id);
         
-        // 다른 사용자의 키는 보안상 일부 정보만 표시
-        if (!isCurrentUser) {
-            return `
-                <div class="ssh-key-section" style="margin-bottom:25px;">
-                    <h3 style="margin:0 0 15px 0;color:#212529;text-align:left;">SSH 키 정보</h3>
-                    <div class="ssh-key-info">
-                        <div class="key-field" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
-                            <strong>알고리즘:</strong> RSA
-                        </div>
-                        <div class="key-field" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
-                            <strong>키 크기:</strong> 4096 bits
-                        </div>
-                        <div class="key-field" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
-                            <strong>생성일:</strong> ${keyCreated}
-                        </div>
-                        <div class="key-field" style="display:flex;justify-content:space-between;padding:8px 0;">
-                            <strong>수정일:</strong> ${keyUpdated}
-                        </div>
+        let keyData = {};
+        if (isCurrentUser) {
+            try {
+                keyData = await AppUtils.apiFetch('/keys', 'GET');
+            } catch (error) {
+                console.error('❌ 현재 사용자 키 정보 로드 실패:', error.message);
+                return `
+                    <div class="ssh-key-section">
+                        <h3 class="modal-subheader">SSH 키 정보</h3>
+                        <p class="security-notice error">
+                            ⚠️ 키 정보 로드 실패: ${Utils.escapeHtml(error.message)}
+                        </p>
                     </div>
-                    <p class="security-notice" style="margin-top:15px;padding:10px;background:#fff9c4;border-left:4px solid #ffc107;border-radius:4px;color:#856404;font-size:0.9rem;">
-                        🔒 보안상 다른 사용자의 키 내용은 표시되지 않습니다.
-                    </p>
-                </div>
-            `;
+                `;
+            }
+        } else if (AuthManager.isAdmin()) {
+            try {
+                keyData = await AppUtils.apiFetch(`/admin/users/${userData.id}/keys`, 'GET');
+            } catch (error) {
+                console.error('❌ 관리자 키 정보 로드 실패:', error.message);
+                return `
+                    <div class="ssh-key-section">
+                        <h3 class="modal-subheader">SSH 키 정보</h3>
+                        <p class="security-notice warning">
+                            🔒 키 정보 로드 실패 또는 접근 권한 없음: ${Utils.escapeHtml(error.message)}
+                        </p>
+                    </div>
+                `;
+            }
         }
-
-        // 현재 사용자의 키는 전체 정보 표시
-        const keyData = userData.ssh_key;
+        
+        const keyCreated = Utils.formatDate(keyData.created_at || new Date().toISOString());
+        const keyUpdated = Utils.formatDate(keyData.updated_at || new Date().toISOString());
+        
         return `
-            <div class="ssh-key-section" style="margin-bottom:25px;">
-                <h3 style="margin:0 0 15px 0;color:#212529;text-align:left;">SSH 키 정보</h3>
-                <div class="ssh-key-info" style="margin-bottom:20px;">
-                    <div class="key-field" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
-                        <strong>알고리즘:</strong> RSA
+            <div class="ssh-key-section">
+                <h3 class="modal-subheader">SSH 키 정보</h3>
+                <div class="ssh-key-info">
+                    <div class="key-field">
+                        <strong>알고리즘:</strong> ${Utils.escapeHtml(keyData.Algorithm || keyData.algorithm || 'RSA')}
                     </div>
-                    <div class="key-field" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
-                        <strong>키 크기:</strong> 4096 bits
+                    <div class="key-field">
+                        <strong>키 크기:</strong> ${keyData.Bits || keyData.bits || '4096'} bits
                     </div>
-                    <div class="key-field" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
+                    <div class="key-field">
                         <strong>생성일:</strong> ${keyCreated}
                     </div>
-                    <div class="key-field" style="display:flex;justify-content:space-between;padding:8px 0;">
+                    <div class="key-field">
                         <strong>수정일:</strong> ${keyUpdated}
                     </div>
                 </div>
                 
-                <div class="key-content-section">
-                    <h4 style="margin:20px 0 10px 0;color:#495057;">공개키 (Public Key)</h4>
-                    <div class="key-display-wrapper" style="position:relative;margin-bottom:20px;">
-                        <pre class="key-content" id="modal-public-key" style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:4px;padding:12px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-wrap:break-word;margin:0;padding-right:80px;">${keyData.public_key || keyData.PublicKey || ''}</pre>
-                        <button type="button" class="copy-key-btn" data-key-type="public" style="position:absolute;top:8px;right:8px;background:#6c757d;color:white;border:none;padding:4px 8px;border-radius:3px;font-size:11px;cursor:pointer;">
-                            📋 복사
-                        </button>
-                    </div>
-                    
-                    <h4 style="margin:20px 0 10px 0;color:#495057;">개인키 (PEM Format)</h4>
-                    <div class="key-display-wrapper" style="position:relative;margin-bottom:20px;">
-                        <pre class="key-content" id="modal-pem-key" style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:4px;padding:12px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-wrap:break-word;margin:0;padding-right:80px;">${keyData.pem || keyData.PEM || ''}</pre>
-                        <button type="button" class="copy-key-btn" data-key-type="pem" style="position:absolute;top:8px;right:8px;background:#6c757d;color:white;border:none;padding:4px 8px;border-radius:3px;font-size:11px;cursor:pointer;">
-                            📋 복사
-                        </button>
-                    </div>
-                    
-                    <h4 style="margin:20px 0 10px 0;color:#495057;">개인키 (PPK Format)</h4>
-                    <div class="key-display-wrapper" style="position:relative;margin-bottom:20px;">
-                        <pre class="key-content" id="modal-ppk-key" style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:4px;padding:12px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-wrap:break-word;margin:0;padding-right:80px;">${keyData.ppk || keyData.PPK || ''}</pre>
-                        <button type="button" class="copy-key-btn" data-key-type="ppk" style="position:absolute;top:8px;right:8px;background:#6c757d;color:white;border:none;padding:4px 8px;border-radius:3px;font-size:11px;cursor:pointer;">
-                            📋 복사
-                        </button>
-                    </div>
-                </div>
+                ${isCurrentUser ? this.generateKeyContents(keyData) : this.generateAdminKeyContents(keyData)}
             </div>
         `;
     },
 
-    generateActivityInfo: function(userData) {
-        const createdDate = new Date(userData.created_at);
-        const updatedDate = new Date(userData.updated_at);
-        const now = new Date();
-        
-        const daysSinceCreated = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
-        const daysSinceUpdated = Math.floor((now - updatedDate) / (1000 * 60 * 60 * 24));
-        
-        let activityStatus = '';
-        if (daysSinceUpdated === 0) {
-            activityStatus = '🟢 오늘 활동';
-        } else if (daysSinceUpdated <= 7) {
-            activityStatus = '🟡 최근 활동';
-        } else if (daysSinceUpdated <= 30) {
-            activityStatus = '🟠 한 달 내 활동';
-        } else {
-            activityStatus = '🔴 비활성';
-        }
-
+    generateKeyContents: function(keyData) {
         return `
-            <div class="activity-info" style="margin-bottom:25px;">
-                <h3 style="margin:0 0 15px 0;color:#212529;text-align:left;">활동 정보</h3>
-                <div class="activity-grid" style="display:grid;gap:12px;">
-                    <div class="activity-item" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
-                        <strong>가입 기간:</strong> ${daysSinceCreated}일
-                    </div>
-                    <div class="activity-item" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8f9fa;">
-                        <strong>마지막 활동:</strong> ${daysSinceUpdated === 0 ? '오늘' : `${daysSinceUpdated}일 전`}
-                    </div>
-                    <div class="activity-item" style="display:flex;justify-content:space-between;padding:8px 0;">
-                        <strong>활동 상태:</strong> ${activityStatus}
-                    </div>
+            <div class="key-content-section">
+                <h4 class="modal-key-title">공개키 (Public Key)</h4>
+                <div class="key-display-wrapper">
+                    <pre class="key-content" id="modal-public-key">${Utils.escapeHtml(keyData.PublicKey || keyData.public_key || '')}</pre>
+                    <button type="button" class="copy-key-btn" data-key-type="public">
+                        📋 복사
+                    </button>
                 </div>
+                
+                <h4 class="modal-key-title">개인키 (PEM Format)</h4>
+                <div class="key-display-wrapper">
+                    <pre class="key-content" id="modal-pem-key">${Utils.escapeHtml(keyData.PEM || keyData.private_key || '')}</pre>
+                    <button type="button" class="copy-key-btn" data-key-type="pem">
+                        📋 복사
+                    </button>
+                </div>
+                
+                <h4 class="modal-key-title">개인키 (PPK Format)</h4>
+                <div class="key-display-wrapper">
+                    <pre class="key-content" id="modal-ppk-key">${Utils.escapeHtml(keyData.PPK || keyData.ppk || '')}</pre>
+                    <button type="button" class="copy-key-btn" data-key-type="ppk">
+                        📋 복사
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+    
+    generateAdminKeyContents: function(keyData) {
+        return `
+            <div class="key-content-section">
+                <h4 class="modal-key-title">공개키 (Public Key)</h4>
+                <div class="key-display-wrapper">
+                    <pre class="key-content" id="modal-public-key">${Utils.escapeHtml(keyData.PublicKey || keyData.public_key || '')}</pre>
+                    <button type="button" class="copy-key-btn" data-key-type="public">
+                        📋 복사
+                    </button>
+                </div>
+                
+                <p class="security-notice warning">
+                    🔒 보안상 관리자도 다른 사용자의 개인키는 볼 수 없습니다.
+                </p>
             </div>
         `;
     },
@@ -305,7 +301,7 @@ window.ModalManager = {
         
         if (isCurrentUser) {
             return `
-                <div class="modal-actions" style="display:flex;gap:10px;justify-content:center;padding-top:20px;border-top:1px solid #e9ecef;">
+                <div class="modal-actions">
                     <button type="button" class="btn-primary" onclick="ViewManager.showView('profile'); ModalManager.closeModal();">
                         ✏️ 프로필 편집
                     </button>
@@ -319,7 +315,7 @@ window.ModalManager = {
             `;
         } else {
             return `
-                <div class="modal-actions" style="display:flex;gap:10px;justify-content:center;padding-top:20px;border-top:1px solid #e9ecef;">
+                <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="ModalManager.closeModal()">
                         닫기
                     </button>
@@ -327,41 +323,7 @@ window.ModalManager = {
             `;
         }
     },
-
-    setupKeyActions: function(userData) {
-        if (!userData.has_ssh_key || !userData.ssh_key || !UserManager.isCurrentUser(userData.id)) {
-            return;
-        }
-
-        // 키 복사 버튼 이벤트 설정
-        const copyButtons = DOM.userDetailContent.querySelectorAll('.copy-key-btn');
-        
-        copyButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
-                const keyType = e.target.dataset.keyType;
-                let keyContent = '';
-                
-                const keyData = userData.ssh_key;
-                switch (keyType) {
-                    case 'public':
-                        keyContent = keyData.public_key || keyData.PublicKey || '';
-                        break;
-                    case 'pem':
-                        keyContent = keyData.pem || keyData.PEM || '';
-                        break;
-                    case 'ppk':
-                        keyContent = keyData.ppk || keyData.PPK || '';
-                        break;
-                }
-                
-                if (keyContent) {
-                    CopyManager.copyToClipboard(keyContent, `${keyType.toUpperCase()} 키`);
-                }
-            });
-        });
-    },
-
-    // 모달 크기 조정
+    
     adjustModalSize: function() {
         const modalContent = document.querySelector('.modal-content');
         const windowHeight = window.innerHeight;
@@ -370,26 +332,5 @@ window.ModalManager = {
         if (modalContent) {
             modalContent.style.maxHeight = `${maxHeight}px`;
         }
-    },
-
-    // HTML 이스케이프 유틸리티
-    escapeHtml: function(unsafe) {
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    },
-
-    // 모달 초기화
-    init: function() {
-        // 윈도우 리사이즈 시 모달 크기 조정
-        window.addEventListener('resize', this.adjustModalSize);
-        
-        // 초기 모달 크기 설정
-        this.adjustModalSize();
-        
-        console.log('ModalManager 초기화 완료');
     }
 };

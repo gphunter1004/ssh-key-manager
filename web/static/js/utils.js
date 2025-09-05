@@ -9,7 +9,8 @@ window.Utils = {
         'expired': '세션이 만료되었습니다. 다시 로그인해주세요 🕐',
         'invalid': '입력 정보를 확인해주세요 ✏️',
         'notfound': '요청한 정보를 찾을 수 없습니다 🔍',
-        'permission': '권한이 없습니다 🚫'
+        'permission': '권한이 없습니다 🚫',
+        'conflict': '데이터 충돌이 발생했습니다. 이미 존재하는 항목일 수 있습니다.'
     },
 
     // 에러 타입 감지
@@ -19,11 +20,12 @@ window.Utils = {
         if (message.includes('network') || message.includes('fetch')) return 'connection';
         if (message.includes('timeout')) return 'timeout';
         if (message.includes('500') || message.includes('internal')) return 'server';
-        if (message.includes('401') || message.includes('unauthorized')) return 'auth';
+        if (message.includes('401') || message.includes('unauthorized') || message.includes('token')) return 'auth';
         if (message.includes('403') || message.includes('forbidden')) return 'permission';
         if (message.includes('404') || message.includes('not found')) return 'notfound';
-        if (message.includes('expired') || message.includes('invalid token')) return 'expired';
-        if (message.includes('validation') || message.includes('invalid')) return 'invalid';
+        if (message.includes('409') || message.includes('conflict') || message.includes('exists')) return 'conflict';
+        if (message.includes('expired')) return 'expired';
+        if (message.includes('validation') || message.includes('invalid') || message.includes('required')) return 'invalid';
         
         return 'unknown';
     },
@@ -31,8 +33,7 @@ window.Utils = {
     // 개선된 에러 처리
     handleError: function(error, context = '') {
         // 에러 메시지 추출
-        let errorMessage = 'Unknown error';
-        
+        let errorMessage = '알 수 없는 오류가 발생했습니다';
         if (error && typeof error === 'object') {
             if (error.message) {
                 errorMessage = error.message;
@@ -47,7 +48,7 @@ window.Utils = {
         
         console.error(`[${context}] 에러 발생:`, errorMessage, error);
         
-        const errorType = this.getErrorType({ message: errorMessage });
+        const errorType = this.getErrorType({ message: errorMessage, status: error.status });
         
         // 404 에러이고 키 관련 요청인 경우 특별 처리
         if (error.status === 404 && context.includes('keys')) {
@@ -159,29 +160,25 @@ window.Utils = {
 
     // 로딩 상태 관리
     setLoading: function(isLoading, message = '처리 중...') {
+        const buttons = document.querySelectorAll('button:not(.toast-close)');
+
         if (isLoading) {
             document.body.style.cursor = 'wait';
             
-            // 모든 버튼 비활성화
-            const buttons = document.querySelectorAll('button:not(.toast-close)');
             buttons.forEach(btn => {
                 btn.disabled = true;
-                btn.dataset.wasDisabled = btn.disabled;
                 btn.style.opacity = '0.6';
+                btn.style.pointerEvents = 'none';
             });
             
-            // 로딩 인디케이터 표시
             this.showLoadingIndicator(message);
         } else {
             document.body.style.cursor = '';
             
-            // 버튼 활성화
-            const buttons = document.querySelectorAll('button:not(.toast-close)');
             buttons.forEach(btn => {
-                if (btn.dataset.wasDisabled !== 'true') {
-                    btn.disabled = false;
-                }
+                btn.disabled = false;
                 btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
             });
             
             this.hideLoadingIndicator();
@@ -380,6 +377,7 @@ window.Utils = {
 
     // HTML 이스케이프
     escapeHtml: function(unsafe) {
+        if (!unsafe) return '';
         return unsafe
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
@@ -431,7 +429,6 @@ window.Utils = {
         if (ua.includes('Chrome')) browser.name = 'Chrome';
         else if (ua.includes('Firefox')) browser.name = 'Firefox';
         else if (ua.includes('Safari')) browser.name = 'Safari';
-        else if (ua.includes('Edge')) browser.name = 'Edge';
 
         return browser;
     },

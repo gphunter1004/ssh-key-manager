@@ -11,12 +11,9 @@
 <div class="container">
     <h1>SSH Key Manager</h1>
 
-    <!-- 에러 표시 영역 추가 -->
     <div id="error-display" style="display: none; background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #f5c6cb;"></div>
 
-    <!-- 인증 섹션 -->
     <div id="auth-section">
-        <!-- 로그인 -->
         <div id="login-view">
             <div class="form-container">
                 <h2>로그인</h2>
@@ -31,13 +28,12 @@
             </div>
         </div>
 
-        <!-- 회원가입 -->
         <div id="register-view" class="hidden">
             <div class="form-container">
                 <h2>회원가입</h2>
                 <form id="register-form">
-                    <input type="text" name="username" placeholder="사용자명" required minlength="3">
-                    <input type="password" name="password" placeholder="비밀번호" required minlength="4">
+                    <input type="text" name="username" placeholder="사용자명" required>
+                    <input type="password" name="password" placeholder="비밀번호" required>
                     <button type="submit">가입하기</button>
                 </form>
                 <p class="toggle-link">
@@ -47,9 +43,7 @@
         </div>
     </div>
 
-    <!-- 메인 섹션 -->
     <div id="key-section" class="hidden">
-        <!-- 헤더 -->
         <div class="header-section">
             <button id="logout-btn">로그아웃</button>
             <div class="nav-buttons">
@@ -61,7 +55,6 @@
             </div>
         </div>
 
-        <!-- 키 관리 뷰 -->
         <div id="keys-view" class="view-section">
             <div class="action-bar">
                 <h3>🔑 SSH 키 관리</h3>
@@ -75,7 +68,6 @@
             <div id="key-info"></div>
             
             <div id="key-display-area" class="hidden">
-                <!-- 공개키 -->
                 <div class="key-item">
                     <h4>공개키 (.pub)</h4>
                     <div class="command-display">
@@ -92,7 +84,6 @@
                     </div>
                 </div>
 
-                <!-- PEM 개인키 -->
                 <div class="key-item">
                     <h4>개인키 (PEM)</h4>
                     <div class="command-display">
@@ -105,7 +96,6 @@
                     </div>
                 </div>
 
-                <!-- PPK 개인키 -->
                 <div class="key-item">
                     <h4>개인키 (PPK)</h4>
                     <div class="command-display">
@@ -120,7 +110,6 @@
             </div>
         </div>
 
-        <!-- 서버 관리 뷰 -->
         <div id="servers-view" class="view-section hidden">
             <div class="action-bar">
                 <h3>🖥️ 서버 관리</h3>
@@ -131,7 +120,6 @@
                 </div>
             </div>
 
-            <!-- 서버 추가 폼 -->
             <div id="server-form-modal" class="form-modal hidden">
                 <h4>새 서버 추가</h4>
                 <form id="server-form">
@@ -166,15 +154,12 @@
                 </form>
             </div>
 
-            <!-- 서버 목록 -->
             <div class="cards-container">
                 <div id="servers-list">
-                    <!-- 동적 로드 -->
-                </div>
+                    </div>
             </div>
         </div>
 
-        <!-- 부서 관리 뷰 -->
         <div id="departments-view" class="view-section hidden">
             <div class="action-bar">
                 <h3>🏢 부서 관리</h3>
@@ -184,7 +169,6 @@
                 </div>
             </div>
 
-            <!-- 부서 추가 폼 -->
             <div id="department-form-modal" class="form-modal hidden">
                 <h4>새 부서 추가</h4>
                 <form id="department-form">
@@ -209,15 +193,12 @@
                 </form>
             </div>
 
-            <!-- 부서 목록 -->
             <div class="cards-container">
                 <div id="departments-list">
-                    <!-- 동적 로드 -->
-                </div>
+                    </div>
             </div>
         </div>
 
-        <!-- 사용자 목록 뷰 -->
         <div id="users-view" class="view-section hidden">
             <h2>사용자 목록</h2>
             
@@ -233,11 +214,9 @@
             </div>
             
             <div id="users-list" class="users-list">
-                <!-- 동적 로드 -->
-            </div>
+                </div>
         </div>
 
-        <!-- 프로필 뷰 -->
         <div id="profile-view" class="view-section hidden">
             <h2>프로필 관리</h2>
             
@@ -256,13 +235,11 @@
             </div>
             
             <div id="current-user-info">
-                <!-- 동적 로드 -->
-            </div>
+                </div>
         </div>
     </div>
 </div>
 
-<!-- 모달 -->
 <div id="user-detail-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -270,12 +247,10 @@
             <button class="close">&times;</button>
         </div>
         <div id="user-detail-content">
-            <!-- 동적 로드 -->
-        </div>
+            </div>
     </div>
 </div>
 
-<!-- 키 배포 모달 -->
 <div id="deploy-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -283,12 +258,10 @@
             <button class="close">&times;</button>
         </div>
         <div id="deploy-content">
-            <!-- 동적 로드 -->
-        </div>
+            </div>
     </div>
 </div>
 
-<!-- 분할된 스크립트들 -->
 <script src="js/utils.js"></script>
 <script src="js/auth-manager.js"></script>
 <script src="js/key-manager.js"></script>

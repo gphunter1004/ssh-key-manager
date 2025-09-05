@@ -51,7 +51,7 @@ window.ViewManager = {
         
         // 권한 확인
         if (!this.checkViewAccess(viewName)) {
-            this.showMessage('해당 기능에 접근할 권한이 없습니다', 'warning');
+            Utils.showToast('해당 기능에 접근할 권한이 없습니다', 'warning');
             return false;
         }
         
@@ -161,7 +161,7 @@ window.ViewManager = {
         if (typeof ServerManager !== 'undefined' && ServerManager.loadServersList) {
             ServerManager.loadServersList();
         } else {
-            this.showMessage('서버 관리 기능은 준비 중입니다', 'info');
+            Utils.showToast('서버 관리 기능은 준비 중입니다', 'info');
         }
     },
 
@@ -170,7 +170,7 @@ window.ViewManager = {
         if (typeof DepartmentManager !== 'undefined' && DepartmentManager.loadDepartmentsList) {
             DepartmentManager.loadDepartmentsList();
         } else {
-            this.showMessage('부서 관리 기능은 준비 중입니다', 'info');
+            Utils.showToast('부서 관리 기능은 준비 중입니다', 'info');
         }
     },
 
@@ -353,20 +353,6 @@ window.ViewManager = {
         const current = this.currentView;
         console.log(`🔄 현재 뷰(${current}) 새로고침`);
         this.showView(current);
-    },
-
-    // 메시지 표시 (Utils 의존성 제거)
-    showMessage: function(message, type = 'info') {
-        if (typeof Utils !== 'undefined' && Utils.showToast) {
-            Utils.showToast(message, type);
-        } else {
-            console.log(`[${type.toUpperCase()}] ${message}`);
-            
-            // 중요한 메시지는 alert으로도 표시
-            if (type === 'error' || type === 'warning') {
-                alert(message);
-            }
-        }
     },
 
     // 현재 뷰 정보 가져오기 (디버깅용)

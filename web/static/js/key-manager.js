@@ -1,5 +1,16 @@
 // SSH 키 관리자 - 최종 완성본
 window.KeyManager = {
+    init: function() {
+        console.log('🔧 KeyManager 초기화 시작');
+        this.setupEventListeners();
+        
+        // DOM 요소 존재 확인
+        this.checkRequiredElements();
+        
+        console.log('✅ KeyManager 초기화 완료');
+        return true;
+    },
+
     setupEventListeners: function() {
         // 키 관리 버튼 이벤트 설정
         document.addEventListener('click', (e) => {
@@ -34,8 +45,7 @@ window.KeyManager = {
             this.setKeyInfoText('생성된 SSH 키가 없습니다. 키를 생성해주세요.');
         }
         
-        // 🔥 성공/실패 관계없이 항상 버튼 활성화
-        this.clearLoadingState();
+        Utils.setLoading(false);
     },
 
     createKey: async function() {
@@ -46,22 +56,20 @@ window.KeyManager = {
         }
 
         try {
-            this.setLoadingState('키 생성 중...');
+            Utils.setLoading(true, '키 생성 중...');
             
             const keyData = await AppUtils.apiFetch('/keys', 'POST');
             
             console.log('✅ SSH 키 생성 성공');
             this.displayKeys(keyData);
             
-            if (Utils && Utils.showToast) {
-                Utils.showToast('SSH 키가 성공적으로 생성되었습니다!', 'success');
-            }
+            Utils.showToast('SSH 키가 성공적으로 생성되었습니다!', 'success');
             
         } catch (error) {
             console.error('❌ SSH 키 생성 실패:', error.message);
             this.hideKeys();
         } finally {
-            this.clearLoadingState();
+            Utils.setLoading(false);
         }
     },
 
@@ -69,7 +77,7 @@ window.KeyManager = {
         console.log('👀 SSH 키 조회 요청');
         
         try {
-            this.setLoadingState('키 조회 중...');
+            Utils.setLoading(true, '키 조회 중...');
             
             const keyData = await AppUtils.apiFetch('/keys', 'GET');
             
@@ -86,9 +94,9 @@ window.KeyManager = {
                 this.setKeyInfoText('키를 불러오는 중 오류가 발생했습니다.');
             }
             
-            throw error; // autoLoadKeys에서 catch할 수 있도록
+            throw error;
         } finally {
-            this.clearLoadingState();
+            Utils.setLoading(false);
         }
     },
 
@@ -100,39 +108,33 @@ window.KeyManager = {
         }
 
         try {
-            this.setLoadingState('키 삭제 중...');
+            Utils.setLoading(true, '키 삭제 중...');
             
             await AppUtils.apiFetch('/keys', 'DELETE');
             
             console.log('✅ SSH 키 삭제 성공');
             this.hideKeys();
             
-            if (Utils && Utils.showToast) {
-                Utils.showToast('SSH 키가 성공적으로 삭제되었습니다.', 'success');
-            }
+            Utils.showToast('SSH 키가 성공적으로 삭제되었습니다.', 'success');
             
         } catch (error) {
             console.error('❌ SSH 키 삭제 실패:', error.message);
         } finally {
-            this.clearLoadingState();
+            Utils.setLoading(false);
         }
     },
 
     displayKeys: function(keyData) {
         console.log('📋 키 데이터 표시:', keyData);
         
-        // 키 데이터 정규화
         const normalizedData = this.normalizeKeyData(keyData);
         
-        // 키 정보 표시
         this.setKeyInfoText(`Algorithm: ${normalizedData.algorithm} / Bits: ${normalizedData.bits}`);
         
-        // 키 내용 설정
         this.setElementText('key-public', normalizedData.publicKey);
         this.setElementText('key-pem', normalizedData.privateKeyPem);
         this.setElementText('key-ppk', normalizedData.privateKeyPpk);
         
-        // 명령어 생성
         const commands = this.generateCommands(normalizedData);
         this.setElementText('cmd-public', commands.publicKey);
         this.setElementText('cmd-pem', commands.pem);
@@ -143,7 +145,6 @@ window.KeyManager = {
                 `echo '${this.escapeShell(normalizedData.publicKey)}' >> ~/.ssh/authorized_keys`);
         }
         
-        // 키 표시 영역 보이기
         const keyDisplayArea = document.getElementById('key-display-area');
         if (keyDisplayArea) {
             keyDisplayArea.classList.remove('hidden');
@@ -153,7 +154,6 @@ window.KeyManager = {
     },
 
     normalizeKeyData: function(keyData) {
-        // 다양한 API 응답 형태를 표준화
         const normalized = {
             algorithm: keyData.Algorithm || keyData.algorithm || 'RSA',
             bits: keyData.Bits || keyData.bits || keyData.key_size || 4096,
@@ -172,7 +172,8 @@ window.KeyManager = {
             ppk: normalizedData.privateKeyPpk ? `echo '${this.escapeShell(normalizedData.privateKeyPpk)}' > id_rsa.ppk` : ''
         };
     },
-
+    
+    // 셸 명령어 이스케이프 헬퍼
     escapeShell: function(str) {
         if (!str) return '';
         return str.replace(/'/g, "'\"'\"'");
@@ -185,32 +186,6 @@ window.KeyManager = {
             keyDisplayArea.classList.add('hidden');
         }
         this.setKeyInfoText('');
-    },
-
-    setLoadingState: function(message) {
-        this.setKeyInfoText(message || '처리 중...', '#3498db', 'bold');
-        
-        // 키 관리 버튼들 비활성화
-        const buttons = document.querySelectorAll('[data-action^="key-"]');
-        buttons.forEach(btn => {
-            btn.disabled = true;
-            btn.style.opacity = '0.6';
-        });
-    },
-
-    clearLoadingState: function() {
-        console.log('🔧 KeyManager 로딩 상태 해제 및 버튼 활성화');
-        
-        // 🔥 키 관리 버튼들 항상 활성화
-        const buttons = document.querySelectorAll('[data-action^="key-"]');
-        buttons.forEach(btn => {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.pointerEvents = 'auto';
-            btn.style.cursor = 'pointer';
-        });
-        
-        console.log('✅ 모든 키 관련 버튼이 활성화되었습니다');
     },
 
     setKeyInfoText: function(text, color = '', fontWeight = '') {
@@ -229,13 +204,11 @@ window.KeyManager = {
         }
     },
 
-    // 새로고침
     refresh: async function() {
         console.log('🔄 키 정보 새로고침');
         await this.viewKey();
     },
 
-    // DOM 요소 존재 확인
     checkRequiredElements: function() {
         const requiredElements = [
             'key-info', 'key-display-area', 'key-public', 'key-pem', 'key-ppk',
@@ -250,23 +223,6 @@ window.KeyManager = {
         }
 
         console.log('✅ 모든 필수 DOM 요소가 존재합니다');
-        return true;
-    },
-
-    // 초기화
-    init: function() {
-        console.log('🔧 KeyManager 초기화 시작');
-        
-        // DOM 요소 존재 확인
-        if (!this.checkRequiredElements()) {
-            console.error('❌ 필수 DOM 요소가 누락되어 KeyManager 초기화 실패');
-            return false;
-        }
-
-        // 이벤트 리스너 설정
-        this.setupEventListeners();
-
-        console.log('✅ KeyManager 초기화 완료');
         return true;
     }
 };

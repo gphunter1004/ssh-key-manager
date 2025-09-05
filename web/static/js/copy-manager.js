@@ -154,86 +154,37 @@ window.CopyManager = {
     },
 
     showCopySuccess: function(type) {
-        this.showCopyMessage(`✅ ${type}가 클립보드에 복사되었습니다!`, 'success');
+        // Utils 매니저를 사용하여 토스트 메시지 표시
+        if (typeof Utils !== 'undefined' && Utils.showToast) {
+            Utils.showToast(`✅ ${type}가 클립보드에 복사되었습니다!`, 'success');
+        } else {
+            console.log(`✅ ${type} 복사 성공!`);
+        }
     },
 
     showCopyError: function(type) {
-        this.showCopyMessage(`❌ ${type} 복사에 실패했습니다.`, 'error');
+        // Utils 매니저를 사용하여 토스트 메시지 표시
+        if (typeof Utils !== 'undefined' && Utils.showToast) {
+            Utils.showToast(`❌ ${type} 복사에 실패했습니다.`, 'error');
+        } else {
+            console.log(`❌ ${type} 복사 실패!`);
+        }
     },
-
+    
+    // showCopyMessage는 더 이상 사용하지 않고 Utils.showToast로 대체
     showCopyMessage: function(message, type) {
-        // 기존 메시지 제거
-        this.removeCopyMessage();
-        
-        // 메시지 요소 생성
-        const messageEl = document.createElement('div');
-        messageEl.className = `copy-message copy-message-${type}`;
-        messageEl.textContent = message;
-        messageEl.id = 'copy-notification';
-        
-        // 스타일 설정
-        Object.assign(messageEl.style, {
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            padding: '12px 20px',
-            borderRadius: '6px',
-            color: 'white',
-            fontWeight: 'bold',
-            zIndex: '10000',
-            fontSize: '14px',
-            maxWidth: '300px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            transform: 'translateX(100%)',
-            transition: 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out',
-            opacity: '0',
-            cursor: 'pointer'
-        });
-        
-        // 타입별 색상 설정
-        if (type === 'success') {
-            messageEl.style.backgroundColor = '#27ae60';
-        } else if (type === 'error') {
-            messageEl.style.backgroundColor = '#e74c3c';
-        } else if (type === 'warning') {
-            messageEl.style.backgroundColor = '#f39c12';
+        if (typeof Utils !== 'undefined' && Utils.showToast) {
+            Utils.showToast(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
         }
-        
-        // DOM에 추가
-        document.body.appendChild(messageEl);
-        
-        // 애니메이션 시작
-        setTimeout(() => {
-            messageEl.style.transform = 'translateX(0)';
-            messageEl.style.opacity = '1';
-        }, 10);
-        
-        // 자동 제거
-        setTimeout(() => {
-            this.removeCopyMessage();
-        }, 3000);
-        
-        // 클릭으로 제거
-        messageEl.addEventListener('click', () => {
-            this.removeCopyMessage();
-        });
     },
-
+    
+    // removeCopyMessage는 더 이상 사용하지 않음
     removeCopyMessage: function() {
-        const existingMessage = document.getElementById('copy-notification');
-        if (existingMessage) {
-            existingMessage.style.transform = 'translateX(100%)';
-            existingMessage.style.opacity = '0';
-            
-            setTimeout(() => {
-                if (existingMessage.parentNode) {
-                    existingMessage.parentNode.removeChild(existingMessage);
-                }
-            }, 300);
-        }
+        // 기능 대체됨
     },
 
-    // 특정 요소의 텍스트 복사 (외부에서 호출용)
     copyElementText: function(elementId, type) {
         const element = document.getElementById(elementId);
         if (!element) {
@@ -246,22 +197,18 @@ window.CopyManager = {
         this.copyToClipboard(text, type || '텍스트');
     },
 
-    // 텍스트 직접 복사 (외부에서 호출용)
     copyText: function(text, type) {
         this.copyToClipboard(text, type);
     },
 
-    // 복사 지원 여부 확인
     isCopySupported: function() {
         return !!(navigator.clipboard || document.queryCommandSupported('copy'));
     },
 
-    // 보안 컨텍스트 확인
     isSecureContext: function() {
         return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
     },
 
-    // 복사 기능 상태 확인
     getCopyStatus: function() {
         const hasClipboardAPI = !!(navigator.clipboard);
         const hasExecCommand = !!(document.queryCommandSupported && document.queryCommandSupported('copy'));
@@ -275,7 +222,6 @@ window.CopyManager = {
         };
     },
 
-    // 디버그 정보 출력
     logCopyStatus: function() {
         const status = this.getCopyStatus();
         console.log('복사 기능 상태:', status);
@@ -287,15 +233,11 @@ window.CopyManager = {
         }
     },
 
-    // 키보드 단축키 지원 (Ctrl+C)
     setupKeyboardShortcuts: function() {
         document.addEventListener('keydown', (e) => {
-            // Ctrl+C 또는 Cmd+C 감지
             if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-                // 텍스트가 선택되지 않은 상태에서만 처리
                 const selection = window.getSelection();
                 if (!selection.toString()) {
-                    // 현재 활성화된 키 영역이 있으면 복사
                     const activeKeyElement = document.querySelector('.key-content:focus, .command-display:focus');
                     if (activeKeyElement) {
                         e.preventDefault();
@@ -306,10 +248,10 @@ window.CopyManager = {
         });
     },
 
-    // 초기화
     init: function() {
         this.logCopyStatus();
         this.setupKeyboardShortcuts();
+        this.setupEventListeners(); // setupEventListeners 호출을 init에 포함
         console.log('CopyManager 초기화 완료');
     }
 };
